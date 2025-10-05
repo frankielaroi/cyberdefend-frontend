@@ -1,0 +1,299 @@
+import type { Question } from '../types';
+
+export const mockQuestions: Question[] = [
+  // Governance & Policy Questions
+  {
+    id: 'gov-001',
+    category: 'Governance & Policy',
+    text: 'Does your organization have a formal cybersecurity policy document?',
+    type: 'yes_no',
+    weight: 5,
+    followUp: ['What areas does the policy cover?', 'How often is it reviewed?']
+  },
+  {
+    id: 'gov-002',
+    category: 'Governance & Policy',
+    text: 'How often does senior management review cybersecurity risks?',
+    type: 'multiple_choice',
+    options: ['Never', 'Annually', 'Quarterly', 'Monthly', 'Weekly'],
+    weight: 4,
+  },
+  {
+    id: 'gov-003',
+    category: 'Governance & Policy',
+    text: 'Rate your organization\'s cybersecurity budget adequacy',
+    type: 'rating',
+    weight: 3,
+  },
+  {
+    id: 'gov-004',
+    category: 'Governance & Policy',
+    text: 'Does your organization have a designated Chief Information Security Officer (CISO)?',
+    type: 'yes_no',
+    weight: 4,
+  },
+  {
+    id: 'gov-005',
+    category: 'Governance & Policy',
+    text: 'How comprehensive is your organization\'s incident response plan?',
+    type: 'multiple_choice',
+    options: ['No plan exists', 'Basic plan', 'Detailed plan', 'Comprehensive tested plan', 'Enterprise-grade plan with regular updates'],
+    weight: 5,
+  },
+
+  // Access Control Questions
+  {
+    id: 'ac-001',
+    category: 'Access Control',
+    text: 'Does your organization enforce multi-factor authentication (MFA)?',
+    type: 'multiple_choice',
+    options: ['Not implemented', 'For some systems', 'For critical systems', 'For all systems', 'Advanced MFA with biometrics'],
+    weight: 5,
+  },
+  {
+    id: 'ac-002',
+    category: 'Access Control',
+    text: 'How often are user access rights reviewed?',
+    type: 'multiple_choice',
+    options: ['Never', 'When requested', 'Annually', 'Quarterly', 'Monthly'],
+    weight: 4,
+  },
+  {
+    id: 'ac-003',
+    category: 'Access Control',
+    text: 'Does your organization use role-based access control (RBAC)?',
+    type: 'yes_no',
+    weight: 4,
+  },
+  {
+    id: 'ac-004',
+    category: 'Access Control',
+    text: 'Rate the strength of your password policies',
+    type: 'rating',
+    weight: 3,
+  },
+  {
+    id: 'ac-005',
+    category: 'Access Control',
+    text: 'How quickly are access rights revoked when employees leave?',
+    type: 'multiple_choice',
+    options: ['More than a week', 'Within a week', 'Within 3 days', 'Same day', 'Immediately upon notification'],
+    weight: 4,
+  },
+
+  // Network Security Questions
+  {
+    id: 'ns-001',
+    category: 'Network Security',
+    text: 'Does your organization use a next-generation firewall?',
+    type: 'yes_no',
+    weight: 4,
+  },
+  {
+    id: 'ns-002',
+    category: 'Network Security',
+    text: 'How is network traffic monitored?',
+    type: 'multiple_choice',
+    options: ['Not monitored', 'Basic logging', 'Real-time monitoring', 'AI-powered monitoring', 'Comprehensive SIEM solution'],
+    weight: 5,
+  },
+  {
+    id: 'ns-003',
+    category: 'Network Security',
+    text: 'Are network segments properly isolated?',
+    type: 'multiple_choice',
+    options: ['No segmentation', 'Basic segmentation', 'VLAN segmentation', 'Micro-segmentation', 'Zero-trust architecture'],
+    weight: 4,
+  },
+  {
+    id: 'ns-004',
+    category: 'Network Security',
+    text: 'Rate your organization\'s network vulnerability management',
+    type: 'rating',
+    weight: 4,
+  },
+  {
+    id: 'ns-005',
+    category: 'Network Security',
+    text: 'Does your organization use intrusion detection/prevention systems (IDS/IPS)?',
+    type: 'yes_no',
+    weight: 4,
+  },
+
+  // Data Protection Questions
+  {
+    id: 'dp-001',
+    category: 'Data Protection',
+    text: 'How is sensitive data classified in your organization?',
+    type: 'multiple_choice',
+    options: ['No classification', 'Basic classification', 'Formal classification scheme', 'Automated classification', 'AI-powered data discovery and classification'],
+    weight: 5,
+  },
+  {
+    id: 'dp-002',
+    category: 'Data Protection',
+    text: 'Is data encrypted at rest?',
+    type: 'multiple_choice',
+    options: ['Not encrypted', 'Some data encrypted', 'Critical data encrypted', 'Most data encrypted', 'All data encrypted'],
+    weight: 5,
+  },
+  {
+    id: 'dp-003',
+    category: 'Data Protection',
+    text: 'Is data encrypted in transit?',
+    type: 'yes_no',
+    weight: 4,
+  },
+  {
+    id: 'dp-004',
+    category: 'Data Protection',
+    text: 'How often are data backups tested for restoration?',
+    type: 'multiple_choice',
+    options: ['Never tested', 'Annually', 'Quarterly', 'Monthly', 'Weekly'],
+    weight: 4,
+  },
+  {
+    id: 'dp-005',
+    category: 'Data Protection',
+    text: 'Rate your organization\'s data loss prevention (DLP) capabilities',
+    type: 'rating',
+    weight: 4,
+  },
+
+  // Security Training Questions
+  {
+    id: 'st-001',
+    category: 'Security Training',
+    text: 'How often do employees receive cybersecurity training?',
+    type: 'multiple_choice',
+    options: ['Never', 'Once only', 'Annually', 'Quarterly', 'Monthly or more'],
+    weight: 4,
+  },
+  {
+    id: 'st-002',
+    category: 'Security Training',
+    text: 'Does your organization conduct phishing simulation exercises?',
+    type: 'yes_no',
+    weight: 4,
+  },
+  {
+    id: 'st-003',
+    category: 'Security Training',
+    text: 'Are employees trained on incident reporting procedures?',
+    type: 'yes_no',
+    weight: 3,
+  },
+  {
+    id: 'st-004',
+    category: 'Security Training',
+    text: 'Rate the effectiveness of your security awareness program',
+    type: 'rating',
+    weight: 3,
+  },
+  {
+    id: 'st-005',
+    category: 'Security Training',
+    text: 'How is cybersecurity training customized for different roles?',
+    type: 'multiple_choice',
+    options: ['Not customized', 'Basic customization', 'Role-specific training', 'Personalized training paths', 'AI-driven adaptive training'],
+    weight: 3,
+  },
+
+  // Incident Response Questions
+  {
+    id: 'ir-001',
+    category: 'Incident Response',
+    text: 'How often is the incident response plan tested?',
+    type: 'multiple_choice',
+    options: ['Never', 'When required', 'Annually', 'Quarterly', 'Monthly'],
+    weight: 5,
+  },
+  {
+    id: 'ir-002',
+    category: 'Incident Response',
+    text: 'Does your organization have a dedicated incident response team?',
+    type: 'yes_no',
+    weight: 4,
+  },
+  {
+    id: 'ir-003',
+    category: 'Incident Response',
+    text: 'How quickly can your organization detect a security incident?',
+    type: 'multiple_choice',
+    options: ['Weeks or longer', 'Days', 'Hours', 'Minutes', 'Real-time detection'],
+    weight: 5,
+  },
+  {
+    id: 'ir-004',
+    category: 'Incident Response',
+    text: 'Rate your organization\'s incident communication procedures',
+    type: 'rating',
+    weight: 3,
+  },
+  {
+    id: 'ir-005',
+    category: 'Incident Response',
+    text: 'Does your organization maintain forensic capabilities?',
+    type: 'multiple_choice',
+    options: ['No capabilities', 'Basic capabilities', 'Internal team', 'External partnerships', 'Advanced forensic lab'],
+    weight: 3,
+  },
+
+  // Business Continuity Questions
+  {
+    id: 'bc-001',
+    category: 'Business Continuity',
+    text: 'Does your organization have a business continuity plan?',
+    type: 'yes_no',
+    weight: 4,
+  },
+  {
+    id: 'bc-002',
+    category: 'Business Continuity',
+    text: 'How often is the business continuity plan tested?',
+    type: 'multiple_choice',
+    options: ['Never', 'When required', 'Annually', 'Quarterly', 'Monthly'],
+    weight: 4,
+  },
+  {
+    id: 'bc-003',
+    category: 'Business Continuity',
+    text: 'What is your organization\'s recovery time objective (RTO) for critical systems?',
+    type: 'multiple_choice',
+    options: ['More than 1 week', '1-3 days', '24 hours', '4-8 hours', 'Less than 4 hours'],
+    weight: 4,
+  },
+  {
+    id: 'bc-004',
+    category: 'Business Continuity',
+    text: 'Rate your organization\'s disaster recovery preparedness',
+    type: 'rating',
+    weight: 4,
+  },
+  {
+    id: 'bc-005',
+    category: 'Business Continuity',
+    text: 'Does your organization maintain off-site backup facilities?',
+    type: 'yes_no',
+    weight: 3,
+  },
+];
+
+// Categories for filtering
+export const questionCategories = [
+  'Governance & Policy',
+  'Access Control', 
+  'Network Security',
+  'Data Protection',
+  'Security Training',
+  'Incident Response',
+  'Business Continuity'
+];
+
+// Mock assessment data
+export const mockAssessment = {
+  id: 'assessment-' + Date.now(),
+  organizationId: 'org-1',
+  status: 'in_progress' as const,
+  startedAt: new Date().toISOString(),
+};

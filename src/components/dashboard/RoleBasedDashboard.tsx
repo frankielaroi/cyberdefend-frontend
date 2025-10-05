@@ -1,0 +1,45 @@
+import { useAppSelector } from '../../store/hooks';
+import AdminDashboard from '../admin/AdminDashboard';
+import OrganizationManagerDashboard from './OrganizationManagerDashboard';
+import EndUserDashboard from './EndUserDashboard';
+import type { UserRole } from '../../types';
+
+export default function RoleBasedDashboard() {
+  const user = useAppSelector((state) => state.auth.user);
+  
+  if (!user) {
+    return (
+      <div className="min-h-[400px] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const renderDashboard = (role: UserRole) => {
+    switch (role) {
+      case 'SUPER_ADMIN':
+      case 'CSA_ADMIN':
+        return <AdminDashboard />;
+      
+      case 'ORG_ADMIN':
+      case 'ORG_MANAGER':
+        return <OrganizationManagerDashboard />;
+      
+      case 'END_USER':
+        return <EndUserDashboard />;
+      
+      default:
+        // Fallback to Organization Manager dashboard for unknown roles
+        return <OrganizationManagerDashboard />;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {renderDashboard(user.role)}
+    </div>
+  );
+}
