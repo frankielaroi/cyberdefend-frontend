@@ -183,15 +183,15 @@ const Register: React.FC = () => {
         registerPayload.organizationId = orgData.selectedOrgId;
       }
 
-      const result = await register(registerPayload).unwrap();
+      const result = await register(registerPayload);
 
       // If user has organization data already, skip organization step
-      if (result.user.organization || registerPayload.organizationId || registerPayload.organization) {
-        dispatch(setCredentials(result));
+      if (result.data?.user?.organization || registerPayload.organizationId || registerPayload.organization) {
+        dispatch(setCredentials(result.data));
         navigate('/dashboard');
       } else {
         // Otherwise proceed to organization setup
-        setUserCredentials(result);
+        setUserCredentials(result.data);
         setCurrentStep('organization');
       }
     } catch (err) {
@@ -214,15 +214,15 @@ const Register: React.FC = () => {
           email: orgData.email,
           size: orgData.size,
           description: orgData.description,
-        }).unwrap();
+        });
       } else if (orgData.action === 'join') {
         await joinOrganization({
           inviteCode: orgData.inviteCode,
-        }).unwrap();
+        });
       } else if (orgData.action === 'browse') {
         await joinOrganization({
           organizationId: orgData.selectedOrgId,
-        }).unwrap();
+        });
       }
 
       // Store credentials and navigate to dashboard
@@ -232,6 +232,14 @@ const Register: React.FC = () => {
       }
     } catch (err) {
       console.error('Organization setup failed:', err);
+    }
+  };
+
+  const handleSkipOrganization = () => {
+    // Store credentials and navigate to dashboard without organization
+    if (userCredentials) {
+      dispatch(setCredentials(userCredentials));
+      navigate('/dashboard');
     }
   };
 
@@ -282,10 +290,11 @@ const Register: React.FC = () => {
               <p className="text-red-700 text-sm">
                 {(() => {
                   const currentError = error || orgError;
-                  if (typeof currentError === 'object' && currentError !== null && 'data' in currentError && 
-                      currentError.data && typeof currentError.data === 'object' && currentError.data !== null && 
-                      'message' in currentError.data && typeof (currentError.data as any).message === 'string') {
-                    return (currentError.data as { message: string }).message;
+                  if (currentError && typeof currentError === 'object' && 'message' in currentError) {
+                    return (currentError as { message: string }).message;
+                  }
+                  if (currentError && typeof currentError === 'string') {
+                    return currentError;
                   }
                   return currentStep === 'account' ? 'Registration failed. Please try again.' : 'Organization setup failed. Please try again.';
                 })()}
@@ -1058,28 +1067,53 @@ const Register: React.FC = () => {
                   )}
                 </div>
 
-                <div className="flex space-x-4">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep('account')}
-                    className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-medium transition-colors"
-                  >
-                    Back to Account
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isOrgLoading}
-                    className="flex-1 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex items-center justify-center"
-                  >
-                    {isOrgLoading ? (
-                      'Setting up...'
-                    ) : (
-                      <>
-                        <CheckCircle className="w-5 h-5 mr-2" />
-                        Complete Setup
-                      </>
-                    )}
-                  </button>
+                <div className="space-y-3">
+                  <div className="flex space-x-4">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep('account')}
+                      className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-medium transition-colors"
+                    >
+                      Back to Account
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isOrgLoading}
+                      className="flex-1 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex items-center justify-center"
+                    >
+                      {isOrgLoading ? (
+                        'Setting up...'
+                      ) : (
+                        <>
+                          <CheckCircle className="w-5 h-5 mr-2" />
+                          Complete Setup
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  
+                  {/* Skip Organization Button */}
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-slate-200" />
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-2 bg-white text-slate-500">or</span>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={handleSkipOrganization}
+                      className="inline-flex items-center px-4 py-2 text-slate-600 hover:text-blue-600 text-sm font-medium transition-colors border border-slate-200 rounded-lg hover:border-blue-200 hover:bg-blue-50"
+                    >
+                      <span>Skip for now - I'll set up my organization later</span>
+                    </button>
+                    <p className="text-xs text-slate-500 mt-2">
+                      You can always create or join an organization from your dashboard
+                    </p>
+                  </div>
                 </div>
               </>
             )}

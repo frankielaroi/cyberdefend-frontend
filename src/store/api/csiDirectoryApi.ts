@@ -1,42 +1,45 @@
-import { apiSlice } from './apiSlice';
-import type { 
-  CSIDirectoryEntry,
-  CSIDirectoryParams,
-  CSILeaderboardParams,
-  LeaderboardEntry,
-  HeatmapData,
-  PaginatedResponse
-} from '../../types';
+// Mock CSI Directory API - Replace with actual implementation when backend is ready
+import { generateMockCSIEntry, generateMockLeaderboardEntry } from '../../data/mockData';
 
-export const csiDirectoryApi = apiSlice.injectEndpoints({
-  endpoints: (builder) => ({
-    // Public CSI Directory endpoints
-    getCSIDirectory: builder.query<PaginatedResponse<CSIDirectoryEntry>, CSIDirectoryParams>({
-      query: (params) => ({
-        url: '/csi-directory/public',
-        params,
-      }),
-    }),
-    getCSILeaderboard: builder.query<LeaderboardEntry[], CSILeaderboardParams>({
-      query: (params) => ({
-        url: '/csi-directory/leaderboard',
-        params,
-      }),
-    }),
-    getCSIHeatmap: builder.query<HeatmapData[], void>({
-      query: () => '/csi-directory/heatmap',
-    }),
-    getCSIAdminStats: builder.query<any, void>({
-      query: () => '/csi-directory/admin/stats',
-      providesTags: ['Assessment'],
-    }),
-  }),
+// Simple mock implementations
+export const useGetCSIDirectoryQuery = () => ({
+  data: { 
+    data: Array.from({ length: 10 }, () => generateMockCSIEntry()),
+    pagination: { page: 1, limit: 10, total: 100, totalPages: 10 }
+  },
+  isLoading: false,
+  error: null,
+  refetch: () => Promise.resolve()
 });
 
-export const {
-  // CSI Directory hooks
-  useGetCSIDirectoryQuery,
-  useGetCSILeaderboardQuery,
-  useGetCSIHeatmapQuery,
-  useGetCSIAdminStatsQuery,
-} = csiDirectoryApi;
+export const useGetCSILeaderboardQuery = () => ({
+  data: Array.from({ length: 10 }, () => generateMockLeaderboardEntry()),
+  isLoading: false,
+  error: null,
+  refetch: () => Promise.resolve()
+});
+
+export const useGetCSIHeatmapQuery = () => ({
+  data: [
+    { region: 'North America', score: 85, count: 245 },
+    { region: 'Europe', score: 78, count: 189 },
+    { region: 'Asia Pacific', score: 72, count: 156 },
+    { region: 'Latin America', score: 68, count: 89 },
+    { region: 'Africa', score: 65, count: 34 }
+  ],
+  isLoading: false,
+  error: null,
+  refetch: () => Promise.resolve()
+});
+
+export const useGetCSIAdminStatsQuery = () => ({
+  data: {
+    totalEntries: 713,
+    averageScore: 76.2,
+    topPerformers: 45,
+    recentSubmissions: 23
+  },
+  isLoading: false,
+  error: null,
+  refetch: () => Promise.resolve()
+});

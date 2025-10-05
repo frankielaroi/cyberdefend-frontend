@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {
+    "@faker-js/faker": "^10.0.0",
     "@heroicons/react": "^2.2.0",
     "@reduxjs/toolkit": "^2.9.0",
     "@supabase/supabase-js": "^2.57.4",
