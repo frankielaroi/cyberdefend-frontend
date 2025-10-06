@@ -1,4 +1,4 @@
-// Mock Auth API - Replace with actual implementation when backend is ready
+// Real Auth API connected to backend
 export { 
   useLoginMutation,
   useRegisterMutation,
@@ -9,4 +9,5 @@ export {
   useForgotPasswordMutation,
   useResetPasswordMutation,
   useVerifyEmailMutation,
-} from './mockAuthApi';
+  useValidateTokenQuery,
+} from './realAuthApi';

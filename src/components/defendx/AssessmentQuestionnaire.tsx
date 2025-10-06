@@ -4,6 +4,11 @@ import { answerQuestion, nextQuestion, previousQuestion, clearAssessment } from 
 import { useSubmitAssessmentMutation } from '../../store/api/defendxApi';
 import { ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
 
+type SubmitAssessmentMutationResult = [
+  (params: any) => Promise<{ data: any }>,
+  { isLoading: boolean; error: any; reset: () => void }
+];
+
 interface Props {
   onComplete: () => void;
 }
@@ -13,7 +18,7 @@ export default function AssessmentQuestionnaire({ onComplete }: Props) {
   const { currentAssessment, currentQuestions, responses, currentQuestionIndex } = useAppSelector(
     (state) => state.defendx
   );
-  const [submitAssessment, { isLoading: isSubmitting }] = useSubmitAssessmentMutation();
+  const [submitAssessment, { isLoading: isSubmitting }] = useSubmitAssessmentMutation() as SubmitAssessmentMutationResult;
   const [showResults, setShowResults] = useState(false);
   const [results, setResults] = useState<any>(null);
 
@@ -46,9 +51,12 @@ export default function AssessmentQuestionnaire({ onComplete }: Props) {
       const result = await submitAssessment({
         assessmentId: currentAssessment.id,
         responses,
-      }).unwrap();
-      setResults(result);
-      setShowResults(true);
+      });
+      
+      if (result.data) {
+        setResults(result.data);
+        setShowResults(true);
+      }
     } catch (error) {
       console.error('Failed to submit assessment:', error);
     }

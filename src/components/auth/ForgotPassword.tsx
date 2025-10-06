@@ -27,7 +27,8 @@ export default function ForgotPassword() {
       await forgotPassword({ email }).unwrap();
       setIsSuccess(true);
     } catch (err: any) {
-      setError(err?.data?.message || 'Failed to send reset link. Please try again.');
+      const errorMessage = err?.data?.message || 'Failed to send reset link. Please try again.';
+      setError(errorMessage);
     }
   };
 

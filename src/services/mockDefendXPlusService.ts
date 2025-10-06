@@ -31,6 +31,14 @@ interface LaunchCampaignDto {
 }
 
 interface CampaignResultsDto {
+  targetCount: number;
+  deliveredCount: any;
+  openedCount: any;
+  clickedCount: any;
+  reportedCount: any;
+  name: ReactNode;
+  status: string;
+  startDate: any;
   campaign: PhishingCampaign;
   timeline: Array<{
     timestamp: string;

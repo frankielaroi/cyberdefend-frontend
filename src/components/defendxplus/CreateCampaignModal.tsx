@@ -6,8 +6,13 @@ interface Props {
   onClose: () => void;
 }
 
+type CreateCampaignMutationResult = [
+  (params: any) => Promise<{ data: any }>,
+  { isLoading: boolean; error: any; reset: () => void }
+];
+
 export default function CreateCampaignModal({ onClose }: Props) {
-  const [createCampaign, { isLoading }] = useCreateCampaignMutation();
+  const [createCampaign, { isLoading }] = useCreateCampaignMutation() as CreateCampaignMutationResult;
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -27,7 +32,7 @@ export default function CreateCampaignModal({ onClose }: Props) {
     const targets = targetEmails.map(email => ({ email }));
 
     try {
-      await createCampaign({
+      const result = await createCampaign({
         name: formData.name,
         description: formData.description || undefined,
         template: formData.template,
@@ -37,8 +42,11 @@ export default function CreateCampaignModal({ onClose }: Props) {
         landingPageUrl: formData.landingPageUrl || undefined,
         targets,
         scheduledAt: formData.scheduledAt || undefined,
-      }).unwrap();
-      onClose();
+      });
+      
+      if (result.data) {
+        onClose();
+      }
     } catch (error) {
       console.error('Failed to create campaign:', error);
     }

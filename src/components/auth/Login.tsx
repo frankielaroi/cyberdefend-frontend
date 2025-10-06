@@ -25,7 +25,9 @@ export default function Login() {
       dispatch(setCredentials(result));
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err?.data?.message || 'Login failed. Please check your credentials.');
+      // Handle RTK Query error format
+      const errorMessage = err?.data?.message || err?.message || 'Login failed. Please check your credentials.';
+      setError(errorMessage);
     }
   };
 

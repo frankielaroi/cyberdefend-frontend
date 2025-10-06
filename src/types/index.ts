@@ -230,6 +230,41 @@ export interface RefreshTokenDto {
   refresh_token: string;
 }
 
+// Organization Management Types
+export interface JoinOrganizationDto {
+  inviteCode?: string;
+  organizationId?: string;
+}
+
+export interface OrganizationMemberDto {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  status: 'active' | 'inactive' | 'pending';
+  joinedAt: string;
+  lastLogin?: string;
+  invitedBy?: string;
+}
+
+export interface InviteCodeDto {
+  id: string;
+  code: string;
+  organizationId: string;
+  createdBy: string;
+  expiresAt: string;
+  usageLimit: number;
+  usedCount: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface GenerateInviteCodeDto {
+  expiresIn?: number; // Days until expiration (default 7)
+  usageLimit?: number; // How many times it can be used (default unlimited)
+}
+
 // DefendX API Types
 export type AssessmentType = 'CSI_ASSESSMENT' | 'COMPLIANCE_CHECK' | 'SECURITY_AUDIT' | 'BASELINE_ASSESSMENT';
 

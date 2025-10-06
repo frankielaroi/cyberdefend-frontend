@@ -58,7 +58,7 @@ export default function OrganizationManagerDashboard() {
           <p className="text-slate-600 mt-1">Monitor your cybersecurity posture and operations</p>
         </div>
         
-        {subscription?.status === 'trial' && (
+        {(subscription as any)?.status === 'trial' && (
           <Link
             to="/dashboard/billing"
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all"
@@ -284,14 +284,14 @@ export default function OrganizationManagerDashboard() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">
-                  {subscription.plan} Plan
+                  {(subscription as any).plan || 'Free'} Plan
                 </h3>
                 <p className="text-slate-600">
                   Status: <span className={`font-medium ${
-                    subscription.status === 'active' ? 'text-green-600' :
-                    subscription.status === 'trial' ? 'text-yellow-600' : 'text-red-600'
+                    (subscription as any).status === 'active' ? 'text-green-600' :
+                    (subscription as any).status === 'trial' ? 'text-yellow-600' : 'text-red-600'
                   }`}>
-                    {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
+                    {(subscription as any).status ? (subscription as any).status.charAt(0).toUpperCase() + (subscription as any).status.slice(1) : 'Unknown'}
                   </span>
                 </p>
               </div>
@@ -299,8 +299,8 @@ export default function OrganizationManagerDashboard() {
             
             <div className="text-right">
               <p className="text-sm text-slate-600">
-                {subscription.status === 'trial' ? 'Trial ends' : 'Renews'}: {' '}
-                {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                {(subscription as any).status === 'trial' ? 'Trial ends' : 'Renews'}: {' '}
+                {(subscription as any).currentPeriodEnd ? new Date((subscription as any).currentPeriodEnd).toLocaleDateString() : 'N/A'}
               </p>
               <Link
                 to="/dashboard/billing"

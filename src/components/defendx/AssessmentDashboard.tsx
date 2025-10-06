@@ -10,7 +10,7 @@ import AssessmentQuestionnaire from './AssessmentQuestionnaire';
 export default function AssessmentDashboard() {
   const dispatch = useAppDispatch();
   const { data: latestResult } = useGetLatestCSIResultQuery();
-  const { data: plans } = useGetPlansQuery();
+  const { data: plans = [] } = useGetPlansQuery();
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
 
@@ -59,11 +59,11 @@ export default function AssessmentDashboard() {
     if (!latestResult?.score) return plans.slice(0, 2);
     
     if (latestResult.score >= 80) {
-      return plans.filter(plan => plan.name.includes('Premium') || plan.name.includes('Enterprise'));
+      return plans.filter((plan: any) => plan.name.includes('Premium') || plan.name.includes('Enterprise'));
     } else if (latestResult.score >= 60) {
-      return plans.filter(plan => plan.name.includes('Standard') || plan.name.includes('Professional'));
+      return plans.filter((plan: any) => plan.name.includes('Standard') || plan.name.includes('Professional'));
     }
-    return plans.filter(plan => plan.name.includes('Basic') || plan.name.includes('Starter'));
+    return plans.filter((plan: any) => plan.name.includes('Basic') || plan.name.includes('Starter'));
   };  return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -92,7 +92,7 @@ export default function AssessmentDashboard() {
                   <Shield className="w-8 h-8 text-blue-600" />
                   <h2 className="text-2xl font-bold text-slate-900">Current CSI Score</h2>
                 </div>
-                <p className="text-slate-600">Last updated: {new Date(latestResult.completedAt || Date.now()).toLocaleDateString()}</p>
+                <p className="text-slate-600">Last updated: {new Date((latestResult as any).completedAt || Date.now()).toLocaleDateString()}</p>
               </div>
               <div className="text-center">
                 <div className="text-6xl font-bold text-blue-600">{latestResult.score}</div>
@@ -261,7 +261,7 @@ export default function AssessmentDashboard() {
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {getRecommendedPlans().slice(0, 3).map((plan) => (
+              {getRecommendedPlans().slice(0, 3).map((plan: any) => (
                 <div key={plan.id} className="border border-slate-200 rounded-lg p-6 hover:border-blue-300 transition-colors">
                   <div className="flex items-center gap-3 mb-4">
                     <h3 className="text-lg font-bold text-slate-900">{plan.name}</h3>
@@ -275,7 +275,7 @@ export default function AssessmentDashboard() {
                     </div>
                   </div>
                   <ul className="space-y-3 mb-6">
-                    {plan.features?.slice(0, 4).map((feature, index) => (
+                    {plan.features?.slice(0, 4).map((feature: any, index: number) => (
                       <li key={index} className="flex items-start gap-2 text-sm">
                         <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
                         <span className="text-slate-700">{feature}</span>

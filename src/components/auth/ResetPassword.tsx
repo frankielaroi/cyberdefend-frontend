@@ -59,9 +59,11 @@ export default function ResetPassword() {
         token,
         password: formData.password,
       }).unwrap();
+      
       setIsSuccess(true);
     } catch (err: any) {
-      setError(err?.data?.message || 'Failed to reset password. Please try again.');
+      const errorMessage = err?.data?.message || 'Failed to reset password. Please try again.';
+      setError(errorMessage);
     }
   };
 

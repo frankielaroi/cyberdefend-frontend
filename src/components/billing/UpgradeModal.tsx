@@ -6,9 +6,14 @@ interface Props {
   onClose: () => void;
 }
 
+type CreateCheckoutMutationResult = [
+  (data: any) => Promise<{ data: any }>,
+  { isLoading: boolean; error: any; reset: () => void }
+];
+
 export default function UpgradeModal({ onClose }: Props) {
   const { data: plans = [], isLoading } = useGetPlansQuery();
-  const [createCheckout, { isLoading: isCreating }] = useCreateCheckoutSessionMutation();
+  const [createCheckout, { isLoading: isCreating }] = useCreateCheckoutSessionMutation() as CreateCheckoutMutationResult;
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'momo'>('card');
 
@@ -19,9 +24,11 @@ export default function UpgradeModal({ onClose }: Props) {
       const result = await createCheckout({
         planId: selectedPlan,
         paymentMethod,
-      }).unwrap();
+      });
 
-      window.location.href = result.checkoutUrl;
+      if (result.data?.checkoutUrl) {
+        window.location.href = result.data.checkoutUrl;
+      }
     } catch (error) {
       console.error('Failed to create checkout:', error);
     }
@@ -42,9 +49,9 @@ export default function UpgradeModal({ onClose }: Props) {
             <div className="text-center py-12">Loading plans...</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {plans.map((plan) => (
+              {(plans as any[]).map((plan: any, index: number) => (
                 <div
-                  key={plan.id}
+                  key={plan.id || index}
                   onClick={() => setSelectedPlan(plan.id)}
                   className={`rounded-xl border-2 p-6 cursor-pointer transition-all ${
                     selectedPlan === plan.id
@@ -52,16 +59,16 @@ export default function UpgradeModal({ onClose }: Props) {
                       : 'border-slate-200 hover:border-blue-300'
                   }`}
                 >
-                  <h3 className="text-xl font-bold text-slate-900 mb-2">{plan.name}</h3>
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">{plan.name || 'Plan'}</h3>
                   <div className="text-3xl font-bold text-slate-900 mb-1">
-                    {plan.currency} {plan.price}
+                    {plan.currency || '$'} {plan.price || '0'}
                   </div>
                   <div className="text-sm text-slate-600 mb-4">
                     per {plan.interval === 'monthly' ? 'month' : 'year'}
                   </div>
 
                   <div className="space-y-2 mb-4">
-                    {plan.features.map((feature, idx) => (
+                    {(plan.features || []).map((feature: any, idx: number) => (
                       <div key={idx} className="flex items-start gap-2 text-sm">
                         <Check className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
                         <span className="text-slate-700">{feature}</span>
@@ -71,13 +78,13 @@ export default function UpgradeModal({ onClose }: Props) {
 
                   <div className="space-y-2 pt-4 border-t border-slate-200">
                     <div className="text-sm font-medium text-slate-700">Includes:</div>
-                    {plan.modules.defendX && (
+                    {plan.modules?.defendX && (
                       <div className="flex items-center gap-2 text-sm text-slate-600">
                         <Check className="w-4 h-4 text-blue-600" />
                         DefendX Assessment
                       </div>
                     )}
-                    {plan.modules.defendXPlus && (
+                    {plan.modules?.defendXPlus && (
                       <div className="flex items-center gap-2 text-sm text-slate-600">
                         <Check className="w-4 h-4 text-blue-600" />
                         DefendX+ Monitoring

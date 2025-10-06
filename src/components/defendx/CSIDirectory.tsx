@@ -12,7 +12,7 @@ export default function CSIDirectory() {
   });
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'map'>('grid');
 
-  const { data: directoryData, isLoading } = useGetCSIDirectoryQuery(filters);
+  const { data: directoryData, isLoading } = useGetCSIDirectoryQuery();
   const { data: heatmapData } = useGetCSIHeatmapQuery();
   
   const entries = directoryData?.data || [];
@@ -211,7 +211,7 @@ export default function CSIDirectory() {
                 {heatmapData?.slice(0, 4).map((region: any, index: number) => (
                   <div key={index} className="bg-white rounded-lg p-4 border border-slate-200">
                     <h4 className="font-semibold text-slate-900">{region.region}</h4>
-                    <div className="text-2xl font-bold text-blue-600">{region.averageScore}</div>
+                    <div className="text-2xl font-bold text-blue-600">{region.score}</div>
                     <p className="text-sm text-slate-600">{region.count} orgs</p>
                   </div>
                 ))}
@@ -244,7 +244,7 @@ export default function CSIDirectory() {
                   <div className="flex justify-between">
                     <span className="text-slate-600">National Average:</span>
                     <span className="font-semibold text-slate-900">
-                      {heatmapData?.[0]?.averageScore || 'N/A'}
+                      {heatmapData?.[0]?.score || 'N/A'}
                     </span>
                   </div>
                   <div className="flex justify-between">

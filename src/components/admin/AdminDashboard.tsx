@@ -1,20 +1,24 @@
 import { useGetDashboardStatsQuery } from '../../store/api/adminApi';
-import { Users, FileCheck, TrendingUp, DollarSign, MapPin, Building2 } from 'lucide-react';
+import { Users, FileCheck, TrendingUp, MapPin, Building2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from 'recharts';
 
 // Mock data for demo purposes
 const mockStats = {
-  totalOrganizations: 150,
-  activeSubscriptions: 120,
-  completedAssessments: 380,
-  activeCampaigns: 45,
   totalUsers: 850,
+  activeUsers: 720,
+  totalAssessments: 450,
+  completedAssessments: 380,
+  averageScore: 75.2,
+  totalCampaigns: 60,
+  activeCampaigns: 45,
+  totalAlerts: 125,
+  unacknowledgedAlerts: 8,
   byRegion: {
     'North America': 65,
     'Europe': 45,
     'Asia Pacific': 25,
     'Africa': 15
-  },
+  } as Record<string, number>,
   bySector: {
     'Banking': 30,
     'Healthcare': 25,
@@ -22,7 +26,7 @@ const mockStats = {
     'Government': 20,
     'Education': 15,
     'Manufacturing': 25
-  },
+  } as Record<string, number>,
   trends: [
     { date: '2024-09-01', assessments: 25, campaigns: 8, alerts: 12, newUsers: 15 },
     { date: '2024-09-08', assessments: 30, campaigns: 10, alerts: 8, newUsers: 22 },
@@ -30,7 +34,7 @@ const mockStats = {
     { date: '2024-09-22', assessments: 35, campaigns: 9, alerts: 10, newUsers: 25 },
     { date: '2024-09-29', assessments: 32, campaigns: 11, alerts: 7, newUsers: 20 },
   ],
-  recentActivity: []
+  recentActivity: [] as any[]
 };
 
 export default function AdminDashboard() {
@@ -63,26 +67,26 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <StatCard
           icon={<Users className="w-6 h-6" />}
-          title="Organizations"
-          value={(finalStats?.totalOrganizations || 0).toString()}
+          title="Total Users"
+          value={((finalStats as any)?.totalUsers || 0).toString()}
           color="blue"
         />
         <StatCard
-          icon={<DollarSign className="w-6 h-6" />}
-          title="Active Subscriptions"
-          value={(finalStats?.activeSubscriptions || 0).toString()}
+          icon={<Users className="w-6 h-6" />}
+          title="Active Users"
+          value={((finalStats as any)?.activeUsers || 0).toString()}
           color="green"
         />
         <StatCard
           icon={<FileCheck className="w-6 h-6" />}
-          title="Assessments"
-          value={(finalStats?.completedAssessments || 0).toString()}
+          title="Completed Assessments"
+          value={((finalStats as any)?.completedAssessments || 0).toString()}
           color="slate"
         />
         <StatCard
           icon={<TrendingUp className="w-6 h-6" />}
-          title="Total Users"
-          value={(finalStats?.totalUsers || 0).toString()}
+          title="Active Campaigns"
+          value={((finalStats as any)?.activeCampaigns || 0).toString()}
           color="orange"
         />
       </div>

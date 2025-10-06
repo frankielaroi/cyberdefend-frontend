@@ -21,6 +21,16 @@ import {
   AlertCircle
 } from 'lucide-react';
 
+type AcknowledgeAlertMutationResult = [
+  (params: { id: string; data: any }) => Promise<{ data: any }>,
+  { isLoading: boolean; error: any; reset: () => void }
+];
+
+type CloseAlertMutationResult = [
+  (params: { id: string; data: any }) => Promise<{ data: any }>,
+  { isLoading: boolean; error: any; reset: () => void }
+];
+
 interface AlertFilters {
   severity: 'all' | 'low' | 'medium' | 'high' | 'critical';
   status: 'all' | 'open' | 'acknowledged' | 'closed';
@@ -54,8 +64,8 @@ export default function MonitoringDashboard() {
     status: filters.status !== 'all' ? filters.status : undefined
   });
 
-  const [acknowledgeAlert] = useAcknowledgeAlertMutation();
-  const [closeAlert] = useCloseAlertMutation();
+  const [acknowledgeAlert] = useAcknowledgeAlertMutation() as AcknowledgeAlertMutationResult;
+  const [closeAlert] = useCloseAlertMutation() as CloseAlertMutationResult;
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
@@ -190,15 +200,18 @@ export default function MonitoringDashboard() {
 
   const handleAcknowledgeAlert = async (alertId: string) => {
     try {
-      await acknowledgeAlert({ 
+      const result = await acknowledgeAlert({ 
         id: alertId,
         data: {
           alertId, 
           acknowledgedBy: 'current_user', // In real app, get from auth context
           notes: 'Alert acknowledged from monitoring dashboard' 
         }
-      }).unwrap();
-      refetchAlerts();
+      });
+      
+      if (result.data) {
+        refetchAlerts();
+      }
     } catch (error) {
       console.error('Failed to acknowledge alert:', error);
     }
@@ -206,15 +219,18 @@ export default function MonitoringDashboard() {
 
   const handleCloseAlert = async (alertId: string) => {
     try {
-      await closeAlert({ 
+      const result = await closeAlert({ 
         id: alertId,
         data: {
           alertId, 
           closedBy: 'current_user', // In real app, get from auth context
           resolution: 'Alert closed from monitoring dashboard' 
         }
-      }).unwrap();
-      refetchAlerts();
+      });
+      
+      if (result.data) {
+        refetchAlerts();
+      }
     } catch (error) {
       console.error('Failed to close alert:', error);
     }

@@ -59,11 +59,11 @@ export default function AssessmentResult() {
 
   const getRecommendedPlans = () => {
     if (result.score < 60) {
-      return plans.filter(plan => plan.name.includes('Premium') || plan.name.includes('Enterprise')).slice(0, 2);
+      return plans.filter((plan: any) => plan.name.includes('Premium') || plan.name.includes('Enterprise')).slice(0, 2);
     } else if (result.score < 80) {
-      return plans.filter(plan => plan.name.includes('Standard') || plan.name.includes('Professional')).slice(0, 2);
+      return plans.filter((plan: any) => plan.name.includes('Standard') || plan.name.includes('Professional')).slice(0, 2);
     }
-    return plans.filter(plan => plan.name.includes('Basic') || plan.name.includes('Starter')).slice(0, 2);
+    return plans.filter((plan: any) => plan.name.includes('Basic') || plan.name.includes('Starter')).slice(0, 2);
   };
 
   const downloadReport = async (format: 'pdf' | 'html' = 'pdf') => {
@@ -90,7 +90,7 @@ export default function AssessmentResult() {
             <div>
               <h1 className="text-3xl font-bold text-slate-900">Assessment Results</h1>
               <p className="text-slate-600 mt-1">
-                Completed on {new Date(result.completedAt).toLocaleDateString()}
+                Completed on {new Date((result as any).completedAt || Date.now()).toLocaleDateString()}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -193,11 +193,11 @@ export default function AssessmentResult() {
               </p>
             </div>
 
-            {result.categoryBreakdown && (
+            {(result as any).categoryBreakdown && (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                 <h3 className="text-lg font-bold text-slate-900 mb-4">Category Scores</h3>
                 <div className="space-y-3">
-                  {Object.entries(result.categoryBreakdown).slice(0, 4).map(([category, score]) => (
+                  {Object.entries((result as any).categoryBreakdown).slice(0, 4).map(([category, score]) => (
                     <div key={category} className="flex items-center justify-between">
                       <span className="text-sm text-slate-600 capitalize">{category.replace('_', ' ')}</span>
                       <div className="flex items-center gap-2">
@@ -250,11 +250,11 @@ export default function AssessmentResult() {
             {activeTab === 'overview' && (
               <div className="space-y-6">
                 {/* Top 5 Vulnerabilities */}
-                {result.vulnerabilities && result.vulnerabilities.length > 0 && (
+                {(result as any).vulnerabilities && (result as any).vulnerabilities.length > 0 && (
                   <div>
                     <h3 className="text-xl font-bold text-slate-900 mb-4">Top Vulnerabilities</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {result.vulnerabilities.slice(0, 5).map((vulnerability, index) => (
+                      {(result as any).vulnerabilities.slice(0, 5).map((vulnerability: any, index: number) => (
                         <div key={index} className="border border-red-200 bg-red-50 rounded-lg p-4">
                           <div className="flex items-start gap-3">
                             <div className="bg-red-100 text-red-600 rounded-full p-2">
@@ -283,7 +283,7 @@ export default function AssessmentResult() {
                   <div>
                     <h3 className="text-xl font-bold text-slate-900 mb-4">Recommended Actions</h3>
                     <div className="space-y-3">
-                      {result.recommendations.slice(0, 5).map((recommendation, index) => (
+                      {result.recommendations.slice(0, 5).map((recommendation: any, index: number) => (
                         <div key={index} className="flex items-start gap-3 p-4 border border-blue-200 bg-blue-50 rounded-lg">
                           <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5" />
                           <div>
@@ -307,11 +307,11 @@ export default function AssessmentResult() {
               </div>
             )}
 
-            {activeTab === 'breakdown' && result.categoryBreakdown && (
+            {activeTab === 'breakdown' && (result as any).categoryBreakdown && (
               <div>
                 <h3 className="text-xl font-bold text-slate-900 mb-6">Category Performance</h3>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {Object.entries(result.categoryBreakdown).map(([category, score]) => (
+                  {Object.entries((result as any).categoryBreakdown).map(([category, score]) => (
                     <div key={category} className="border border-slate-200 rounded-lg p-6">
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="text-lg font-semibold text-slate-900 capitalize">
@@ -344,7 +344,7 @@ export default function AssessmentResult() {
               <div>
                 <h3 className="text-xl font-bold text-slate-900 mb-6">Benchmark Comparison</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {result.benchmark && Object.entries(result.benchmark).map(([key, data]) => (
+                  {(result as any).benchmarks && Object.entries((result as any).benchmarks).map(([key, data]) => (
                     <div key={key} className="bg-slate-50 rounded-lg p-6 text-center">
                       <div className="flex items-center justify-center gap-2 mb-3">
                         {key === 'national' && <MapPin className="w-5 h-5 text-slate-600" />}
@@ -376,7 +376,7 @@ export default function AssessmentResult() {
               <div>
                 <h3 className="text-xl font-bold text-slate-900 mb-6">Upgrade Recommendations</h3>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {getRecommendedPlans().map((plan) => (
+                  {getRecommendedPlans().map((plan: any) => (
                     <div key={plan.id} className="border border-slate-200 rounded-lg p-6 hover:border-blue-300 transition-colors">
                       <div className="flex items-center gap-3 mb-4">
                         {plan.popular && <Crown className="w-6 h-6 text-yellow-500" />}
@@ -397,7 +397,7 @@ export default function AssessmentResult() {
                       </div>
                       <p className="text-slate-600 mb-4">{plan.description}</p>
                       <ul className="space-y-2 mb-6">
-                        {plan.features?.slice(0, 5).map((feature, index) => (
+                        {plan.features?.slice(0, 5).map((feature: any, index: number) => (
                           <li key={index} className="flex items-start gap-2 text-sm">
                             <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
                             <span className="text-slate-700">{feature}</span>

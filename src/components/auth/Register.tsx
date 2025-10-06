@@ -183,19 +183,20 @@ const Register: React.FC = () => {
         registerPayload.organizationId = orgData.selectedOrgId;
       }
 
-      const result = await register(registerPayload);
+      const result = await register(registerPayload).unwrap();
 
       // If user has organization data already, skip organization step
-      if (result.data?.user?.organization || registerPayload.organizationId || registerPayload.organization) {
-        dispatch(setCredentials(result.data));
+      if (result?.user?.organization || registerPayload.organizationId || registerPayload.organization) {
+        dispatch(setCredentials(result));
         navigate('/dashboard');
       } else {
         // Otherwise proceed to organization setup
-        setUserCredentials(result.data);
+        setUserCredentials(result);
         setCurrentStep('organization');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Registration failed:', err);
+      // Handle registration errors - this will be displayed by the error state from the mutation
     }
   };
 
@@ -210,19 +211,19 @@ const Register: React.FC = () => {
       if (orgData.action === 'create') {
         await createOrganization({
           name: orgData.organizationName,
-          industry: orgData.industry,
+          sector: orgData.industry as any, // Convert string to Sector enum
           email: orgData.email,
-          size: orgData.size,
+          size: orgData.size as any, // Convert string to OrganizationSize enum
           description: orgData.description,
-        });
+        }).unwrap();
       } else if (orgData.action === 'join') {
         await joinOrganization({
           inviteCode: orgData.inviteCode,
-        });
+        }).unwrap();
       } else if (orgData.action === 'browse') {
         await joinOrganization({
           organizationId: orgData.selectedOrgId,
-        });
+        }).unwrap();
       }
 
       // Store credentials and navigate to dashboard
@@ -230,8 +231,9 @@ const Register: React.FC = () => {
         dispatch(setCredentials(userCredentials));
         navigate('/dashboard');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Organization setup failed:', err);
+      // Error will be shown by the RTK Query error state
     }
   };
 

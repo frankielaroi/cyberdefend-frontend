@@ -1,9 +1,7 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   BookOpen, 
   Shield, 
-  Award, 
   TrendingUp, 
   Target,
   Mail,
@@ -14,7 +12,6 @@ import {
   Star,
   Trophy,
   ArrowRight,
-  Eye,
   Activity
 } from 'lucide-react';
 

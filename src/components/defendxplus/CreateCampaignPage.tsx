@@ -13,6 +13,16 @@ import {
   Save
 } from 'lucide-react';
 
+type CreateCampaignMutationResult = [
+  (params: any) => Promise<{ data: any }>,
+  { isLoading: boolean; error: any; reset: () => void }
+];
+
+type LaunchCampaignMutationResult = [
+  (params: any) => Promise<{ data: any }>,
+  { isLoading: boolean; error: any; reset: () => void }
+];
+
 interface CampaignFormData {
   name: string;
   description: string;
@@ -73,8 +83,8 @@ const phishingTemplates = [
 
 export default function CreateCampaignPage() {
   const navigate = useNavigate();
-  const [createCampaign, { isLoading: isCreating }] = useCreateCampaignMutation();
-  const [launchCampaign, { isLoading: isLaunching }] = useLaunchCampaignMutation();
+  const [createCampaign, { isLoading: isCreating }] = useCreateCampaignMutation() as CreateCampaignMutationResult;
+  const [launchCampaign, { isLoading: isLaunching }] = useLaunchCampaignMutation() as LaunchCampaignMutationResult;
   
   const [formData, setFormData] = useState<CampaignFormData>({
     name: '',
@@ -165,7 +175,7 @@ export default function CreateCampaignPage() {
       
       const targets = targetEmails.map(email => ({ email }));
 
-      await createCampaign({
+      const result = await createCampaign({
         name: formData.name,
         description: formData.description,
         template: formData.template as any,
@@ -175,9 +185,11 @@ export default function CreateCampaignPage() {
         landingPageUrl: formData.landingPageUrl || undefined,
         targets,
         scheduledAt: formData.scheduleDate ? `${formData.scheduleDate}T${formData.scheduleTime || '09:00'}` : undefined,
-      }).unwrap();
+      });
 
-      navigate('/dashboard/defendxplus/phishing');
+      if (result.data) {
+        navigate('/dashboard/defendxplus/phishing');
+      }
     } catch (error) {
       console.error('Failed to save campaign:', error);
     }
@@ -192,7 +204,7 @@ export default function CreateCampaignPage() {
       const targets = targetEmails.map(email => ({ email }));
 
       // First create the campaign
-      const campaign = await createCampaign({
+      const campaignResult = await createCampaign({
         name: formData.name,
         description: formData.description,
         template: formData.template as any,
@@ -202,16 +214,20 @@ export default function CreateCampaignPage() {
         landingPageUrl: formData.landingPageUrl || undefined,
         targets,
         scheduledAt: immediately ? undefined : (formData.scheduleDate ? `${formData.scheduleDate}T${formData.scheduleTime || '09:00'}` : undefined),
-      }).unwrap();
+      });
 
-      // Then launch it
-      await launchCampaign({
-        campaignId: campaign.id,
-        launchType: immediately ? 'NOW' : 'SCHEDULED',
-        scheduledAt: immediately ? undefined : (formData.scheduleDate ? `${formData.scheduleDate}T${formData.scheduleTime || '09:00'}` : undefined),
-      }).unwrap();
+      if (campaignResult.data) {
+        // Then launch it
+        const launchResult = await launchCampaign({
+          campaignId: campaignResult.data.id,
+          launchType: immediately ? 'NOW' : 'SCHEDULED',
+          scheduledAt: immediately ? undefined : (formData.scheduleDate ? `${formData.scheduleDate}T${formData.scheduleTime || '09:00'}` : undefined),
+        });
 
-      navigate('/dashboard/defendxplus/phishing');
+        if (launchResult.data) {
+          navigate('/dashboard/defendxplus/phishing');
+        }
+      }
     } catch (error) {
       console.error('Failed to launch campaign:', error);
     }

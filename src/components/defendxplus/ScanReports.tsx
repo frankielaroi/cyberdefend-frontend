@@ -21,6 +21,11 @@ import {
   Zap
 } from 'lucide-react';
 
+type TriggerScanMutationResult = [
+  (params: any) => Promise<{ data: any }>,
+  { isLoading: boolean; error: any; reset: () => void }
+];
+
 interface ScanFilters {
   status: 'all' | 'scheduled' | 'running' | 'completed' | 'failed';
   type: 'all' | 'vulnerability' | 'compliance' | 'malware' | 'configuration';
@@ -54,7 +59,7 @@ export default function ScanReports() {
   // Note: Using mock data since API response structure needs clarification
   // const { data: scanResults, isLoading } = useGetScanResultsQuery({});
 
-  const [triggerScan] = useTriggerScanMutation();
+  const [triggerScan] = useTriggerScanMutation() as TriggerScanMutationResult;
 
   // Mock scan data for demonstration
   const mockScans = [
@@ -201,12 +206,15 @@ export default function ScanReports() {
 
   const handleTriggerScan = async (scanType: string) => {
     try {
-      await triggerScan({ 
+      const result = await triggerScan({ 
         scanType: scanType as 'vulnerability' | 'compliance' | 'malware' | 'full',
         agentIds: [] // All agents
-      }).unwrap();
-      // Show success message
-      console.log(`${scanType} scan triggered successfully`);
+      });
+      
+      if (result.data) {
+        // Show success message
+        console.log(`${scanType} scan triggered successfully`);
+      }
     } catch (error) {
       console.error('Failed to trigger scan:', error);
     }
