@@ -17,6 +17,7 @@ import MonitoringDashboard from './components/defendxplus/MonitoringDashboard';
 import ScanReports from './components/defendxplus/ScanReports';
 import CreateCampaignPage from './components/defendxplus/CreateCampaignPage';
 import CampaignDetails from './components/defendxplus/CampaignDetails';
+import TemplateManager from './components/defendxplus/TemplateManager';
 import AdminDashboard from './components/admin/AdminDashboard';
 import QuestionManager from './components/admin/QuestionManager';
 import BillingDashboard from './components/billing/BillingDashboard';
@@ -95,6 +96,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
             <CreateCampaignPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'defendxplus/templates',
+        element: (
+          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
+            <TemplateManager />
           </ProtectedRoute>
         ),
       },

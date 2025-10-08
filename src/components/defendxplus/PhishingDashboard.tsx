@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGetCampaignsQuery } from '../../store/api/defendxPlusApi';
+import { useGetCampaignsQuery } from '../../store/api/realDefendXPlusApi';
 import { 
   Plus, 
   Search, 
@@ -29,7 +29,7 @@ export default function PhishingDashboard() {
   const { data: campaignsResponse, isLoading, error } = useGetCampaignsQuery();
   
   // Extract campaigns array from paginated response
-  const campaigns = campaignsResponse?.data || [];
+  const campaigns = campaignsResponse?.campaigns || [];
   
   const [filters, setFilters] = useState<CampaignFilters>({
     status: '',
@@ -112,6 +112,14 @@ export default function PhishingDashboard() {
             <Plus className="w-4 h-4" />
             Create New Campaign
           </button>
+          
+          <button
+            onClick={() => navigate('/dashboard/defendxplus/templates')}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            <Mail className="w-4 h-4" />
+            Template Manager
+          </button>
         </div>
       </div>
 
@@ -134,7 +142,7 @@ export default function PhishingDashboard() {
             <div>
               <p className="text-slate-600 text-sm">Active Campaigns</p>
               <p className="text-2xl font-bold text-slate-900">
-                {campaigns.filter(c => c.status === 'ACTIVE').length}
+                {campaigns.filter(c => c.status === 'ACTIVE' || c.status === 'RUNNING').length}
               </p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
@@ -149,7 +157,7 @@ export default function PhishingDashboard() {
               <p className="text-slate-600 text-sm">Avg Click Rate</p>
               <p className="text-2xl font-bold text-slate-900">
                 {campaigns.length > 0 
-                  ? Math.round(campaigns.reduce((acc, c) => acc + (c.targetCount > 0 ? (c.clickedCount / c.targetCount) * 100 : 0), 0) / campaigns.length)
+                  ? Math.round(campaigns.reduce((acc, c) => acc + (c.targetCount > 0 ? (c.linksClicked / c.targetCount) * 100 : 0), 0) / campaigns.length)
                   : 0}%
               </p>
             </div>
@@ -204,12 +212,12 @@ export default function PhishingDashboard() {
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">All Statuses</option>
-                <option value="draft">Draft</option>
-                <option value="scheduled">Scheduled</option>
-                <option value="active">Active</option>
-                <option value="running">Running</option>
-                <option value="completed">Completed</option>
-                <option value="failed">Failed</option>
+                <option value="DRAFT">Draft</option>
+                <option value="SCHEDULED">Scheduled</option>
+                <option value="ACTIVE">Active</option>
+                <option value="PAUSED">Paused</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="CANCELLED">Cancelled</option>
               </select>
             </div>
             
@@ -326,8 +334,8 @@ export default function PhishingDashboard() {
                 </tr>
               ) : (
                 filteredCampaigns.map((campaign) => {
-                  const clickRate = campaign.targetCount > 0 ? (campaign.clickedCount / campaign.targetCount) * 100 : 0;
-                  const openRate = campaign.targetCount > 0 ? (campaign.openedCount / campaign.targetCount) * 100 : 0;
+                  const clickRate = campaign.targetCount > 0 ? (campaign.linksClicked / campaign.targetCount) * 100 : 0;
+                  const openRate = campaign.targetCount > 0 ? (campaign.emailsOpened / campaign.targetCount) * 100 : 0;
                   const riskLevel = getRiskLevel(clickRate);
                   return (
                     <tr key={campaign.id} className="hover:bg-slate-50">
@@ -337,7 +345,7 @@ export default function PhishingDashboard() {
                             {campaign.name}
                           </div>
                           <div className="text-sm text-slate-500">
-                            Template: {campaign.template}
+                            Subject: {campaign.subject}
                           </div>
                         </div>
                       </td>
@@ -345,7 +353,7 @@ export default function PhishingDashboard() {
                         {getStatusBadge(campaign.status)}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-900">
-                        {campaign.startDate ? new Date(campaign.startDate).toLocaleDateString() : 'Not set'}
+                        {campaign.createdAt ? new Date(campaign.createdAt).toLocaleDateString() : 'Not set'}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-900">
                         {campaign.targetCount || 0}
@@ -364,7 +372,7 @@ export default function PhishingDashboard() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => navigate(`/defendxplus/campaigns/${campaign.id}`)}
+                            onClick={() => navigate(`/dashboard/defendxplus/campaigns/${campaign.id}`)}
                             className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             title="View Details"
                           >

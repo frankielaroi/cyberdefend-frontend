@@ -4,7 +4,7 @@ import { updateTokens, logout } from '../slices/authSlice';
 import { isTokenExpired } from '../../utils/auth';
 
 // Get API base URL from environment variables
-const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+const baseUrl = import.meta.env.VITE_API_URL || 'https://api.cyberdefend360.com/api/v1';
 
 // Base query with authentication and error handling
 const baseQueryWithAuth = fetchBaseQuery({
@@ -102,7 +102,10 @@ export const apiSlice = createApi({
     'Scan',
     'Organization',
     'Category',
-    'Config'
+    'Config',
+    'CSIDirectory',
+    'Audit',
+    'Statistics'
   ],
   endpoints: () => ({}),
 });

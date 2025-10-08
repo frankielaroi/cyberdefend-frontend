@@ -283,8 +283,11 @@ export interface CSIDirectoryParams {
 }
 
 export interface CSILeaderboardParams {
-  sector?: string;
+  sector?: Sector;
+  region?: string;
+  size?: OrganizationSize;
   limit?: number;
+  timeframe?: 'current' | 'monthly' | 'yearly';
 }
 
 export interface LeaderboardEntry {
@@ -360,18 +363,21 @@ export interface PhishingTargetDto {
   firstName?: string;
   lastName?: string;
   department?: string;
+  jobTitle?: string;
+  userId?: string;
 }
 
 export interface CreateCampaignDto {
   name: string;
   description?: string;
-  template: 'HR_UPDATE' | 'PASSWORD_RESET' | 'IT_SECURITY' | 'BANK_ALERT' | 'SHIPPING_NOTICE' | 'CUSTOM';
+  templateId: string;
   subject: string;
   senderName: string;
   senderEmail: string;
   landingPageUrl?: string;
   scheduledAt?: string;
   targets: PhishingTargetDto[];
+  organizationId?: string;
 }
 
 export interface LaunchCampaignDto {
@@ -402,7 +408,76 @@ export interface UpdateCampaignDto {
   name?: string;
   description?: string;
   subject?: string;
+  senderName?: string;
+  senderEmail?: string;
+  landingPageUrl?: string;
   status?: 'DRAFT' | 'SCHEDULED' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED';
+  scheduledAt?: string;
+}
+
+export interface CampaignFiltersDto {
+  page?: number;
+  limit?: number;
+  status?: 'DRAFT' | 'SCHEDULED' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED';
+  template?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface CampaignTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: 'SECURITY' | 'COMPLIANCE' | 'GENERAL';
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY_HIGH';
+  defaultSubject: string;
+  defaultSenderName: string;
+  emailBodyHtml: string;
+  emailBodyText: string;
+  landingPageHtml?: string;
+  captureCredentials: boolean;
+  isActive: boolean;
+  previewContent: string;
+  tags: string[];
+  usageCount: number;
+  successRate: number | null;
+  createdBy: string;
+  organizationId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  creator: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  organization: any | null;
+}
+
+export interface TemplatesPaginationResponse {
+  templates: CampaignTemplate[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface CreateTemplateDto {
+  name: string;
+  description: string;
+  category: 'SECURITY' | 'IT' | 'FINANCE' | 'HR' | 'EXECUTIVE' | 'GENERAL';
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY_HIGH';
+  defaultSubject: string;
+  defaultSenderName: string;
+  emailBodyHtml: string;
+  emailBodyText: string;
+  landingPageHtml?: string;
+  captureCredentials?: boolean;
+  previewContent: string;
+  tags?: string[];
 }
 
 // DefendX+ Incident Reporting
@@ -675,4 +750,46 @@ export interface ApiError {
   message: string;
   code: string;
   field?: string;
+}
+
+// Question Management DTOs
+export interface CreateQuestionDto {
+  category: string;
+  text: string;
+  type: 'multiple_choice' | 'yes_no' | 'rating';
+  options?: string[];
+  weight: number;
+  followUp?: string[];
+  isActive?: boolean;
+}
+
+export interface UpdateQuestionDto {
+  category?: string;
+  text?: string;
+  type?: 'multiple_choice' | 'yes_no' | 'rating';
+  options?: string[];
+  weight?: number;
+  followUp?: string[];
+  isActive?: boolean;
+}
+
+export interface QuestionFiltersDto {
+  page?: number;
+  limit?: number;
+  category?: string;
+  search?: string;
+  type?: 'multiple_choice' | 'yes_no' | 'rating';
+  isActive?: boolean;
+}
+
+export interface QuestionCategoryDto {
+  name: string;
+  description?: string;
+  weight?: number;
+  isActive?: boolean;
+}
+
+export interface BulkQuestionUpdateDto {
+  questionIds: string[];
+  updates: Partial<UpdateQuestionDto>;
 }

@@ -155,6 +155,12 @@ export const navigationConfig: RoleNavigation = {
           href: '/dashboard/defendxplus/campaigns/create',
           icon: DocumentTextIcon,
           description: 'Create new campaign'
+        },
+        {
+          name: 'Template Manager',
+          href: '/dashboard/defendxplus/templates',
+          icon: DocumentTextIcon,
+          description: 'Manage campaign templates'
         }
       ]
     },
@@ -228,6 +234,12 @@ export const navigationConfig: RoleNavigation = {
           href: '/dashboard/defendxplus/campaigns/create',
           icon: DocumentTextIcon,
           description: 'Create new campaign'
+        },
+        {
+          name: 'Template Manager',
+          href: '/dashboard/defendxplus/templates',
+          icon: DocumentTextIcon,
+          description: 'Manage campaign templates'
         }
       ]
     },

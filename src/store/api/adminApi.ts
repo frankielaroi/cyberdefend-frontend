@@ -1,4 +1,4 @@
-// Mock Admin API - Replace with actual implementation when backend is ready
+// Real Admin API - Backend Integration Ready
 export {
   // Dashboard hooks
   useGetDashboardStatsQuery,
@@ -48,4 +48,4 @@ export {
 
   // Reports hooks
   useGenerateSystemReportMutation,
-} from './mockAdminApi';
+} from './realAdminApi';

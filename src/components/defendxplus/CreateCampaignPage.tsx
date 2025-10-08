@@ -1,599 +1,620 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCreateCampaignMutation, useLaunchCampaignMutation } from '../../store/api/defendxPlusApi';
+import { 
+  useCreateCampaignMutation, 
+  useLaunchCampaignMutation,
+  useGetCampaignTemplatesQuery 
+} from '../../store/api/realDefendXPlusApi';
 import { 
   ArrowLeft, 
-  Upload, 
-  Calendar, 
+  ArrowRight,
+  Mail, 
   Users, 
-  AlertTriangle,
-  Info,
-  FileText,
+  Settings,
   Play,
-  Save
+  Check,
+  AlertTriangle,
+  Calendar,
+  Eye
 } from 'lucide-react';
+import type { CreateCampaignDto } from '../../types';
 
-type CreateCampaignMutationResult = [
-  (params: any) => Promise<{ data: any }>,
-  { isLoading: boolean; error: any; reset: () => void }
-];
-
-type LaunchCampaignMutationResult = [
-  (params: any) => Promise<{ data: any }>,
-  { isLoading: boolean; error: any; reset: () => void }
-];
-
-interface CampaignFormData {
-  name: string;
-  description: string;
-  template: string;
-  subject: string;
-  senderName: string;
-  senderEmail: string;
-  landingPageUrl: string;
-  targets: string;
-  scheduleDate: string;
-  scheduleTime: string;
+interface CampaignFormData extends Omit<CreateCampaignDto, 'targets'> {
+  targetsText: string;
 }
-
-const phishingTemplates = [
-  {
-    id: 'hr-update',
-    name: 'HR Update',
-    description: 'Urgent HR policy update requiring immediate action',
-    category: 'HR',
-    riskLevel: 'Medium'
-  },
-  {
-    id: 'password-reset',
-    name: 'Password Reset',
-    description: 'Security alert requesting password reset',
-    category: 'Security',
-    riskLevel: 'High'
-  },
-  {
-    id: 'payroll-info',
-    name: 'Payroll Information',
-    description: 'Request to update payroll or banking information',
-    category: 'Finance',
-    riskLevel: 'High'
-  },
-  {
-    id: 'it-support',
-    name: 'IT Support',
-    description: 'Fake IT support ticket or system maintenance',
-    category: 'IT',
-    riskLevel: 'Medium'
-  },
-  {
-    id: 'ceo-fraud',
-    name: 'CEO Fraud',
-    description: 'Executive impersonation requesting urgent action',
-    category: 'Executive',
-    riskLevel: 'Very High'
-  },
-  {
-    id: 'invoice-payment',
-    name: 'Invoice Payment',
-    description: 'Fake invoice or payment request',
-    category: 'Finance',
-    riskLevel: 'High'
-  }
-];
 
 export default function CreateCampaignPage() {
   const navigate = useNavigate();
-  const [createCampaign, { isLoading: isCreating }] = useCreateCampaignMutation() as CreateCampaignMutationResult;
-  const [launchCampaign, { isLoading: isLaunching }] = useLaunchCampaignMutation() as LaunchCampaignMutationResult;
+  const [createCampaign, { isLoading: isCreating }] = useCreateCampaignMutation();
+  const [launchCampaign, { isLoading: isLaunching }] = useLaunchCampaignMutation();
+  const { data: templatesData, error: templatesError, isLoading: templatesLoading } = useGetCampaignTemplatesQuery();
+  
+  const [currentStep, setCurrentStep] = useState(1);
+  const [campaignId, setCampaignId] = useState<string | null>(null);
+
+  // Debug templates API call
+  React.useEffect(() => {
+    if (templatesError) {
+      console.error('Templates API Error:', templatesError);
+    }
+    if (templatesData) {
+      console.log('Templates Data:', templatesData);
+    }
+  }, [templatesData, templatesError]);
   
   const [formData, setFormData] = useState<CampaignFormData>({
     name: '',
     description: '',
-    template: 'PASSWORD_RESET',
+    templateId: '',
     subject: '',
-    senderName: '',
-    senderEmail: '',
+    senderName: 'IT Security Team',
+    senderEmail: 'security@company.com',
     landingPageUrl: '',
-    targets: '',
-    scheduleDate: '',
-    scheduleTime: '',
+    targetsText: '',
+    scheduledAt: '',
   });
 
-  const [errors, setErrors] = useState<Partial<CampaignFormData>>({});
-  const [step, setStep] = useState(1);
-  const [targetsFile, setTargetsFile] = useState<File | null>(null);
-
-  const validateStep = (stepNumber: number): boolean => {
-    const newErrors: Partial<CampaignFormData> = {};
-
-    if (stepNumber === 1) {
-      if (!formData.name.trim()) {
-        newErrors.name = 'Campaign name is required';
-      }
-      if (!formData.template) {
-        newErrors.template = 'Please select a template';
-      }
-      if (!formData.subject.trim()) {
-        newErrors.subject = 'Email subject is required';
-      }
-      if (!formData.senderName.trim()) {
-        newErrors.senderName = 'Sender name is required';
-      }
-      if (!formData.senderEmail.trim()) {
-        newErrors.senderEmail = 'Sender email is required';
-      }
+  // Use backend templates only, no fallback
+  const templates = templatesData?.templates || [];
+  
+  // Initialize form with first available template when templates load
+  React.useEffect(() => {
+    if (templates.length > 0 && !formData.templateId) {
+      const firstTemplate = templates[0];
+      setFormData(prev => ({
+        ...prev,
+        templateId: firstTemplate.id,
+        subject: firstTemplate.defaultSubject || '',
+        senderName: firstTemplate.defaultSenderName || 'IT Security Team',
+      }));
     }
+  }, [templates, formData.templateId]);
+  
+  // Show loading state if templates are still being fetched
+  if (templatesLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-md">
+          <div className="flex items-center space-x-3">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <span className="text-gray-600">Loading campaign templates...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-    if (stepNumber === 2) {
-      if (!formData.targets.trim() && !targetsFile) {
-        newErrors.targets = 'Please provide target email addresses';
-      }
+  // Show error state if templates failed to load
+  if (templatesError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md">
+          <div className="text-center">
+            <div className="text-red-500 text-6xl mb-4">⚠️</div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Templates Not Available</h2>
+            <p className="text-gray-600 mb-4">
+              Unable to load campaign templates from the backend.
+            </p>
+            <p className="text-sm text-gray-500 mb-4">
+              Error: {JSON.stringify(templatesError)}
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show message if no templates are available
+  if (templates.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md">
+          <div className="text-center">
+            <div className="text-gray-400 text-6xl mb-4">📧</div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">No Templates Available</h2>
+            <p className="text-gray-600 mb-4">
+              No campaign templates are currently configured in the system.
+            </p>
+            <button
+              onClick={() => navigate('/defendx-plus')}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const steps = [
+    { id: 1, title: 'Campaign Details', icon: Settings },
+    { id: 2, title: 'Email Template', icon: Mail },
+    { id: 3, title: 'Target Audience', icon: Users },
+    { id: 4, title: 'Review & Launch', icon: Check },
+  ];
+
+  const selectedTemplate = templates.find(t => t.id === formData.templateId);
+
+  const updateFormData = (updates: Partial<CampaignFormData>) => {
+    setFormData(prev => ({ ...prev, ...updates }));
+  };
+
+  const validateStep = (step: number): boolean => {
+    switch (step) {
+      case 1:
+        return formData.name.trim() !== '';
+      case 2:
+        return formData.subject.trim() !== '' && formData.senderName.trim() !== '' && formData.senderEmail.trim() !== '';
+      case 3:
+        return formData.targetsText.trim() !== '';
+      default:
+        return true;
     }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
   const handleNext = () => {
-    if (validateStep(step)) {
-      setStep(step + 1);
+    if (validateStep(currentStep) && currentStep < 4) {
+      setCurrentStep(currentStep + 1);
     }
   };
 
   const handlePrevious = () => {
-    setStep(step - 1);
-  };
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setTargetsFile(file);
-      // You would typically parse the CSV file here
-      // For now, we'll just clear the textarea
-      setFormData({ ...formData, targets: '' });
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
     }
   };
 
-  const getTargetCount = (): number => {
-    if (targetsFile) {
-      // In a real implementation, you'd parse the CSV file
-      return 25; // Mock count
+  const handleCreateCampaign = async () => {
+    const targetEmails = formData.targetsText.split('\n').map(e => e.trim()).filter(Boolean);
+    const targets = targetEmails.map(email => ({ email }));
+
+    try {
+      const result = await createCampaign({
+        name: formData.name,
+        description: formData.description || undefined,
+        templateId: formData.templateId,
+        subject: formData.subject,
+        senderName: formData.senderName,
+        senderEmail: formData.senderEmail,
+        landingPageUrl: formData.landingPageUrl || undefined,
+        targets,
+        scheduledAt: formData.scheduledAt || undefined,
+      }).unwrap();
+      
+      setCampaignId(result.data?.id || null);
+      return result.data;
+    } catch (error) {
+      console.error('Failed to create campaign:', error);
+      throw error;
     }
-    
-    return formData.targets
-      .split('\n')
-      .map(email => email.trim())
-      .filter(email => email && email.includes('@'))
-      .length;
+  };
+
+  const handleLaunchCampaign = async () => {
+    if (!campaignId) {
+      const campaign = await handleCreateCampaign();
+      if (campaign) {
+        await launchCampaign({
+          campaignId: campaign.id,
+          launchType: 'NOW'
+        }).unwrap();
+        navigate('/defendx-plus/campaigns');
+      }
+    } else {
+      await launchCampaign({
+        campaignId,
+        launchType: 'NOW'
+      }).unwrap();
+      navigate('/defendx-plus/campaigns');
+    }
   };
 
   const handleSaveDraft = async () => {
     try {
-      const targetEmails = targetsFile 
-        ? [] // Would be parsed from file
-        : formData.targets.split('\n').map(e => e.trim()).filter(Boolean);
-      
-      const targets = targetEmails.map(email => ({ email }));
-
-      const result = await createCampaign({
-        name: formData.name,
-        description: formData.description,
-        template: formData.template as any,
-        subject: formData.subject,
-        senderName: formData.senderName,
-        senderEmail: formData.senderEmail,
-        landingPageUrl: formData.landingPageUrl || undefined,
-        targets,
-        scheduledAt: formData.scheduleDate ? `${formData.scheduleDate}T${formData.scheduleTime || '09:00'}` : undefined,
-      });
-
-      if (result.data) {
-        navigate('/dashboard/defendxplus/phishing');
-      }
+      await handleCreateCampaign();
+      navigate('/defendx-plus/campaigns');
     } catch (error) {
-      console.error('Failed to save campaign:', error);
+      // Error handling is done in handleCreateCampaign
     }
   };
 
-  const handleLaunch = async (immediately: boolean = false) => {
-    try {
-      const targetEmails = targetsFile 
-        ? [] // Would be parsed from file
-        : formData.targets.split('\n').map(e => e.trim()).filter(Boolean);
-
-      const targets = targetEmails.map(email => ({ email }));
-
-      // First create the campaign
-      const campaignResult = await createCampaign({
-        name: formData.name,
-        description: formData.description,
-        template: formData.template as any,
-        subject: formData.subject,
-        senderName: formData.senderName,
-        senderEmail: formData.senderEmail,
-        landingPageUrl: formData.landingPageUrl || undefined,
-        targets,
-        scheduledAt: immediately ? undefined : (formData.scheduleDate ? `${formData.scheduleDate}T${formData.scheduleTime || '09:00'}` : undefined),
+  // Auto-fill template defaults when template changes
+  const handleTemplateChange = (templateId: string) => {
+    const template = templates.find(t => t.id === templateId);
+    if (template) {
+      updateFormData({
+        templateId: templateId as any,
+        subject: template.defaultSubject,
+        senderName: template.defaultSenderName,
       });
-
-      if (campaignResult.data) {
-        // Then launch it
-        const launchResult = await launchCampaign({
-          campaignId: campaignResult.data.id,
-          launchType: immediately ? 'NOW' : 'SCHEDULED',
-          scheduledAt: immediately ? undefined : (formData.scheduleDate ? `${formData.scheduleDate}T${formData.scheduleTime || '09:00'}` : undefined),
-        });
-
-        if (launchResult.data) {
-          navigate('/dashboard/defendxplus/phishing');
-        }
-      }
-    } catch (error) {
-      console.error('Failed to launch campaign:', error);
     }
   };
-
-  const selectedTemplate = phishingTemplates.find(t => t.id === formData.template);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => navigate('/dashboard/defendxplus/phishing')}
-          className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Create Phishing Campaign</h1>
-          <p className="text-slate-600 mt-1">Set up a new phishing simulation to test your team</p>
+      <div className="bg-white border-b border-slate-200">
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/defendx-plus/campaigns')}
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">Create Phishing Campaign</h1>
+              <p className="text-slate-600">Set up a new security awareness campaign</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Progress Steps */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <div className="flex items-center justify-between">
-          {[1, 2, 3].map((stepNumber) => (
-            <div key={stepNumber} className="flex items-center">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
-                step >= stepNumber 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-slate-200 text-slate-600'
-              }`}>
-                {stepNumber}
+      <div className="max-w-4xl mx-auto px-6 py-8">
+        {/* Progress Steps */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            {steps.map((step, index) => {
+              const isActive = currentStep === step.id;
+              const isCompleted = currentStep > step.id;
+              const isValid = validateStep(step.id);
+              const IconComponent = step.icon;
+              
+              return (
+                <div key={step.id} className="flex items-center">
+                  <div className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
+                    isActive ? 'bg-blue-100 text-blue-700' :
+                    isCompleted ? 'bg-green-100 text-green-700' :
+                    'bg-slate-100 text-slate-500'
+                  }`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                      isActive ? 'bg-blue-600 text-white' :
+                      isCompleted ? 'bg-green-600 text-white' :
+                      'bg-slate-300 text-slate-600'
+                    }`}>
+                      {isCompleted ? <Check className="w-4 h-4" /> : step.id}
+                    </div>
+                    <div>
+                      <div className="font-medium">{step.title}</div>
+                      {isActive && !isValid && (
+                        <div className="text-xs text-red-600">Required fields missing</div>
+                      )}
+                    </div>
+                  </div>
+                  {index < steps.length - 1 && (
+                    <div className="w-16 h-1 bg-slate-200 mx-4">
+                      <div className={`h-full transition-all duration-300 ${
+                        currentStep > step.id ? 'bg-green-500' : 'bg-slate-200'
+                      }`} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Step Content */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+          {/* Step 1: Campaign Details */}
+          {currentStep === 1 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 mb-2">Campaign Details</h2>
+                <p className="text-slate-600">Give your campaign a name and description</p>
               </div>
-              <div className="ml-3">
-                <p className={`text-sm font-medium ${
-                  step >= stepNumber ? 'text-blue-600' : 'text-slate-600'
-                }`}>
-                  {stepNumber === 1 && 'Campaign Details'}
-                  {stepNumber === 2 && 'Target Selection'}
-                  {stepNumber === 3 && 'Schedule & Launch'}
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Campaign Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => updateFormData({ name: e.target.value })}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Q4 Security Awareness Test"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Description (Optional)
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => updateFormData({ description: e.target.value })}
+                  rows={3}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Brief description of this campaign's purpose and goals..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <Calendar className="w-4 h-4 inline mr-1" />
+                  Schedule Launch (Optional)
+                </label>
+                <input
+                  type="datetime-local"
+                  value={formData.scheduledAt}
+                  onChange={(e) => updateFormData({ scheduledAt: e.target.value })}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="text-sm text-slate-600 mt-1">
+                  Leave empty to launch immediately after creation
                 </p>
               </div>
-              {stepNumber < 3 && (
-                <div className={`w-16 h-1 mx-4 ${
-                  step > stepNumber ? 'bg-blue-600' : 'bg-slate-200'
-                }`} />
-              )}
             </div>
-          ))}
-        </div>
-      </div>
+          )}
 
-      {/* Step Content */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-        {step === 1 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold text-slate-900 mb-4">Campaign Information</h2>
-              
-              <div className="space-y-4">
+          {/* Step 2: Email Template */}
+          {currentStep === 2 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 mb-2">Email Template</h2>
+                <p className="text-slate-600">Choose a template and customize the email content</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-3">
+                  Select Template
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {templates.map((template) => (
+                    <div
+                      key={template.id}
+                      onClick={() => handleTemplateChange(template.id)}
+                      className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                        formData.templateId === template.id
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-slate-200 hover:border-blue-300'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="font-medium text-slate-900">{template.name}</h3>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          template.riskLevel === 'HIGH' || template.riskLevel === 'VERY_HIGH' ? 'bg-red-100 text-red-700' :
+                          template.riskLevel === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-green-100 text-green-700'
+                        }`}>
+                          {template.riskLevel}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-600 mb-2 line-clamp-2">
+                        {template.description.length > 100 
+                          ? `${template.description.substring(0, 100)}...` 
+                          : template.description}
+                      </p>
+                      <p className="text-xs text-slate-500">{template.category}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {selectedTemplate && (
+                <div className="bg-slate-50 rounded-lg p-4">
+                  <h4 className="font-medium text-slate-900 mb-2 flex items-center gap-2">
+                    <Eye className="w-4 h-4" />
+                    Preview
+                  </h4>
+                  <p className="text-sm text-slate-600">{selectedTemplate.previewContent}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Campaign Name <span className="text-red-500">*</span>
+                    Email Subject *
                   </label>
                   <input
                     type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.name ? 'border-red-300' : 'border-slate-300'
-                    }`}
-                    placeholder="Q4 Security Awareness Training"
+                    required
+                    value={formData.subject}
+                    onChange={(e) => updateFormData({ subject: e.target.value })}
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
-                  {errors.name && (
-                    <p className="mt-1 text-sm text-red-600">{errors.name}</p>
-                  )}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Description (Optional)
+                    Sender Name *
                   </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  <input
+                    type="text"
+                    required
+                    value={formData.senderName}
+                    onChange={(e) => updateFormData({ senderName: e.target.value })}
                     className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    rows={3}
-                    placeholder="Brief description of this campaign's objectives..."
                   />
                 </div>
               </div>
-            </div>
 
-            <div>
-              <h3 className="text-lg font-medium text-slate-900 mb-4">Select Phishing Template</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {phishingTemplates.map((template) => (
-                  <div
-                    key={template.id}
-                    onClick={() => setFormData({ ...formData, template: template.id })}
-                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                      formData.template === template.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-semibold text-slate-900">{template.name}</h4>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        template.riskLevel === 'Very High' ? 'bg-red-100 text-red-700' :
-                        template.riskLevel === 'High' ? 'bg-orange-100 text-orange-700' :
-                        'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        {template.riskLevel}
-                      </span>
-                    </div>
-                    <p className="text-sm text-slate-600 mb-2">{template.description}</p>
-                    <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">
-                      {template.category}
-                    </span>
-                  </div>
-                ))}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Sender Email *
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={formData.senderEmail}
+                  onChange={(e) => updateFormData({ senderEmail: e.target.value })}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="security@company.com"
+                />
               </div>
-              
-              {errors.template && (
-                <p className="mt-2 text-sm text-red-600">{errors.template}</p>
-              )}
-            </div>
-          </div>
-        )}
 
-        {step === 2 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold text-slate-900 mb-4">Target Selection</h2>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-medium text-slate-900 mb-3">Manual Entry</h3>
-                  <textarea
-                    value={formData.targets}
-                    onChange={(e) => setFormData({ ...formData, targets: e.target.value })}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.targets ? 'border-red-300' : 'border-slate-300'
-                    }`}
-                    rows={8}
-                    placeholder="Enter email addresses, one per line:&#10;&#10;john.doe@company.com&#10;jane.smith@company.com&#10;mike.johnson@company.com"
-                    disabled={!!targetsFile}
-                  />
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Landing Page URL (Optional)
+                </label>
+                <input
+                  type="url"
+                  value={formData.landingPageUrl}
+                  onChange={(e) => updateFormData({ landingPageUrl: e.target.value })}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="https://phishing-test.company.com"
+                />
+                <p className="text-sm text-slate-600 mt-1">
+                  Custom landing page for clicked links (optional)
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Target Audience */}
+          {currentStep === 3 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 mb-2">Target Audience</h2>
+                <p className="text-slate-600">Add the email addresses you want to target</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <Users className="w-4 h-4 inline mr-1" />
+                  Target Email Addresses *
+                </label>
+                <textarea
+                  required
+                  value={formData.targetsText}
+                  onChange={(e) => updateFormData({ targetsText: e.target.value })}
+                  rows={8}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter email addresses, one per line:&#10;john.doe@company.com&#10;jane.smith@company.com&#10;alex.johnson@company.com"
+                />
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-sm text-slate-600">
+                    Enter one email address per line
+                  </p>
+                  <p className="text-sm font-medium text-blue-600">
+                    {formData.targetsText.split('\n').filter(e => e.trim()).length} target(s) added
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="text-sm font-medium text-amber-800">Important Notice</h4>
+                    <p className="text-sm text-amber-700 mt-1">
+                      Ensure all participants have been informed about security awareness training 
+                      and have consented to participate in simulated phishing tests.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Review & Launch */}
+          {currentStep === 4 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 mb-2">Review & Launch</h2>
+                <p className="text-slate-600">Review your campaign settings before launching</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="font-medium text-slate-900 mb-2">Campaign Details</h3>
+                    <div className="bg-slate-50 rounded-lg p-3 space-y-2">
+                      <div><span className="font-medium">Name:</span> {formData.name}</div>
+                      {formData.description && (
+                        <div><span className="font-medium">Description:</span> {formData.description}</div>
+                      )}
+                      {formData.scheduledAt && (
+                        <div><span className="font-medium">Scheduled:</span> {new Date(formData.scheduledAt).toLocaleString()}</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-medium text-slate-900 mb-2">Email Configuration</h3>
+                    <div className="bg-slate-50 rounded-lg p-3 space-y-2">
+                      <div><span className="font-medium">Template:</span> {selectedTemplate?.name}</div>
+                      <div><span className="font-medium">Subject:</span> {formData.subject}</div>
+                      <div><span className="font-medium">From:</span> {formData.senderName} &lt;{formData.senderEmail}&gt;</div>
+                      {formData.landingPageUrl && (
+                        <div><span className="font-medium">Landing Page:</span> {formData.landingPageUrl}</div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div>
-                  <h3 className="font-medium text-slate-900 mb-3">CSV Upload</h3>
-                  <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center">
-                    <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                    <div>
-                      <label className="cursor-pointer">
-                        <span className="text-blue-600 hover:text-blue-700 font-medium">
-                          Choose CSV file
-                        </span>
-                        <input
-                          type="file"
-                          accept=".csv"
-                          onChange={handleFileUpload}
-                          className="hidden"
-                        />
-                      </label>
-                      <p className="text-sm text-slate-500 mt-1">
-                        Or drag and drop
-                      </p>
+                  <h3 className="font-medium text-slate-900 mb-2">Target Audience</h3>
+                  <div className="bg-slate-50 rounded-lg p-3">
+                    <div className="text-2xl font-bold text-blue-600 mb-1">
+                      {formData.targetsText.split('\n').filter(e => e.trim()).length}
                     </div>
-                    {targetsFile && (
-                      <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <div className="flex items-center gap-2 text-green-700">
-                          <FileText className="w-4 h-4" />
-                          <span className="text-sm font-medium">{targetsFile.name}</span>
+                    <div className="text-sm text-slate-600">Recipients</div>
+                    <div className="mt-3 max-h-32 overflow-y-auto">
+                      {formData.targetsText.split('\n').filter(e => e.trim()).slice(0, 5).map((email, index) => (
+                        <div key={index} className="text-sm text-slate-700">{email.trim()}</div>
+                      ))}
+                      {formData.targetsText.split('\n').filter(e => e.trim()).length > 5 && (
+                        <div className="text-sm text-slate-500">
+                          +{formData.targetsText.split('\n').filter(e => e.trim()).length - 5} more...
                         </div>
-                        <button
-                          onClick={() => {
-                            setTargetsFile(null);
-                            setFormData({ ...formData, targets: '' });
-                          }}
-                          className="text-sm text-red-600 hover:text-red-700 mt-1"
-                        >
-                          Remove file
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <Info className="w-5 h-5 text-blue-600 mt-0.5" />
-                      <div className="text-sm text-blue-700">
-                        <p className="font-medium mb-1">CSV Format Requirements:</p>
-                        <ul className="space-y-1">
-                          <li>• First column: Email addresses</li>
-                          <li>• Optional: Name, Department columns</li>
-                          <li>• No header row required</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {errors.targets && (
-                <p className="mt-2 text-sm text-red-600">{errors.targets}</p>
-              )}
-
-              <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                <div className="flex items-center gap-2 text-slate-700">
-                  <Users className="w-5 h-5" />
-                  <span className="font-medium">
-                    Target Count: {getTargetCount()} recipients
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold text-slate-900 mb-4">Schedule & Launch</h2>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-medium text-slate-900 mb-3">Campaign Summary</h3>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Campaign Name:</span>
-                      <span className="font-medium">{formData.name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Template:</span>
-                      <span className="font-medium">{selectedTemplate?.name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Target Count:</span>
-                      <span className="font-medium">{getTargetCount()} recipients</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Risk Level:</span>
-                      <span className={`font-medium ${
-                        selectedTemplate?.riskLevel === 'Very High' ? 'text-red-600' :
-                        selectedTemplate?.riskLevel === 'High' ? 'text-orange-600' :
-                        'text-yellow-600'
-                      }`}>
-                        {selectedTemplate?.riskLevel}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-medium text-slate-900 mb-3">Schedule Options</h3>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Launch Date (Optional)
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.scheduleDate}
-                        onChange={(e) => setFormData({ ...formData, scheduleDate: e.target.value })}
-                        className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        min={new Date().toISOString().split('T')[0]}
-                      />
-                    </div>
-
-                    {formData.scheduleDate && (
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                          Launch Time
-                        </label>
-                        <input
-                          type="time"
-                          value={formData.scheduleTime}
-                          onChange={(e) => setFormData({ ...formData, scheduleTime: e.target.value })}
-                          className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                      </div>
-                    )}
-
-                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
-                        <div className="text-sm text-yellow-700">
-                          <p className="font-medium mb-1">Important Reminder:</p>
-                          <p>
-                            This campaign will send {getTargetCount()} phishing emails to your team. 
-                            Ensure you have proper authorization and training materials ready.
-                          </p>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Navigation Buttons */}
-        <div className="flex items-center justify-between pt-6 border-t border-slate-200">
-          <div>
-            {step > 1 && (
-              <button
-                onClick={handlePrevious}
-                className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Previous
-              </button>
-            )}
-          </div>
+          {/* Navigation */}
+          <div className="flex justify-between pt-8 border-t border-slate-200 mt-8">
+            <button
+              onClick={handlePrevious}
+              disabled={currentStep === 1}
+              className="flex items-center gap-2 px-6 py-3 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Previous
+            </button>
 
-          <div className="flex items-center gap-3">
-            {step === 3 && (
-              <>
-                <button
-                  onClick={handleSaveDraft}
-                  disabled={isCreating}
-                  className="flex items-center gap-2 px-4 py-2 text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50"
-                >
-                  <Save className="w-4 h-4" />
-                  Save Draft
-                </button>
-                
-                <button
-                  onClick={() => handleLaunch(true)}
-                  disabled={isCreating || isLaunching}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                >
-                  <Play className="w-4 h-4" />
-                  Launch Now
-                </button>
-                
-                {formData.scheduleDate && (
+            <div className="flex gap-3">
+              {currentStep === 4 ? (
+                <>
                   <button
-                    onClick={() => handleLaunch(false)}
-                    disabled={isCreating || isLaunching}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    onClick={handleSaveDraft}
+                    disabled={isCreating}
+                    className="px-6 py-3 border border-slate-300 rounded-lg hover:bg-slate-50 font-medium transition-colors"
                   >
-                    <Calendar className="w-4 h-4" />
-                    Schedule Launch
+                    Save as Draft
                   </button>
-                )}
-              </>
-            )}
-            
-            {step < 3 && (
-              <button
-                onClick={handleNext}
-                className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Next
-                <ArrowLeft className="w-4 h-4 rotate-180" />
-              </button>
-            )}
+                  <button
+                    onClick={handleLaunchCampaign}
+                    disabled={isCreating || isLaunching}
+                    className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                  >
+                    <Play className="w-4 h-4" />
+                    {isLaunching ? 'Launching...' : 'Launch Campaign'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={handleNext}
+                  disabled={!validateStep(currentStep)}
+                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                >
+                  Next
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

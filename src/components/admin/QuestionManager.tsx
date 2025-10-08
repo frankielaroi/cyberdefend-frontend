@@ -1,41 +1,65 @@
 import { useState } from 'react';
 import { Plus, CreditCard as Edit, Trash2, Save, X } from 'lucide-react';
-import type { Question } from '../../types';
-import { mockQuestions, questionCategories } from '../../data/mockQuestions';
+import type { Question, CreateQuestionDto, UpdateQuestionDto } from '../../types';
+import { 
+  useGetQuestionsQuery, 
+  useGetCategoriesQuery,
+  useCreateQuestionMutation, 
+  useUpdateQuestionMutation, 
+  useDeleteQuestionMutation 
+} from '../../store/api/adminApi';
 
 export default function QuestionManager() {
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [questions, setQuestions] = useState<Question[]>(mockQuestions);
-  const [isLoading] = useState(false);
-
+  const [currentPage, setCurrentPage] = useState(1);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
-  // Filter questions by category
-  const filteredQuestions = selectedCategory 
-    ? questions.filter(q => q.category === selectedCategory)
-    : questions;
+  // API queries and mutations
+  const { data: questionsData, isLoading, error } = useGetQuestionsQuery({
+    page: currentPage,
+    limit: 50,
+    category: selectedCategory || undefined,
+  });
+  
+  const { data: categoriesData } = useGetCategoriesQuery();
+  const [createQuestion] = useCreateQuestionMutation();
+  const [updateQuestion] = useUpdateQuestionMutation();
+  const [deleteQuestion] = useDeleteQuestionMutation();
+
+  const questions = questionsData?.data || [];
+  const categories = categoriesData?.data || [];
+  const categoryNames = categories.map(cat => cat.name);
 
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this question?')) {
-      setQuestions(prev => prev.filter(q => q.id !== id));
+      try {
+        await deleteQuestion(id).unwrap();
+      } catch (error: any) {
+        console.error('Failed to delete question:', error);
+        // Error will be shown by RTK Query error state
+      }
     }
   };
 
-  const handleCreate = (newQuestion: Omit<Question, 'id'>) => {
-    const question: Question = {
-      ...newQuestion,
-      id: 'q-' + Date.now()
-    };
-    setQuestions(prev => [...prev, question]);
-    setShowCreate(false);
+  const handleCreate = async (newQuestion: CreateQuestionDto) => {
+    try {
+      await createQuestion(newQuestion).unwrap();
+      setShowCreate(false);
+    } catch (error: any) {
+      console.error('Failed to create question:', error);
+      // Error will be shown by RTK Query error state
+    }
   };
 
-  const handleUpdate = (id: string, updatedQuestion: Partial<Question>) => {
-    setQuestions(prev => prev.map(q => 
-      q.id === id ? { ...q, ...updatedQuestion } : q
-    ));
-    setEditingId(null);
+  const handleUpdate = async (id: string, updatedQuestion: UpdateQuestionDto) => {
+    try {
+      await updateQuestion({ id, data: updatedQuestion }).unwrap();
+      setEditingId(null);
+    } catch (error: any) {
+      console.error('Failed to update question:', error);
+      // Error will be shown by RTK Query error state
+    }
   };
 
   return (
@@ -64,7 +88,7 @@ export default function QuestionManager() {
           >
             All Categories
           </button>
-          {questionCategories.map((cat) => (
+          {categoryNames.map((cat) => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
@@ -79,18 +103,39 @@ export default function QuestionManager() {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-        <div className="p-6 border-b border-slate-200">
-          <h2 className="text-xl font-bold text-slate-900">Questions ({filteredQuestions.length})</h2>
+        <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+          <h2 className="text-xl font-bold text-slate-900">Questions ({questions.length})</h2>
+          {questionsData?.pagination && questionsData.pagination.totalPages > 1 && (
+            <div className="flex gap-2">
+              {Array.from({ length: questionsData.pagination.totalPages }, (_, i) => (
+                <button
+                  key={i + 1}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    currentPage === i + 1
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="divide-y divide-slate-200">
           {isLoading ? (
-            <div className="p-8 text-center text-slate-600">Loading...</div>
-          ) : filteredQuestions.length === 0 ? (
+            <div className="p-8 text-center text-slate-600">Loading questions...</div>
+          ) : error ? (
+            <div className="p-8 text-center text-red-600">
+              Failed to load questions. Please try again.
+            </div>
+          ) : questions.length === 0 ? (
             <div className="p-8 text-center text-slate-600">
               No questions found. Add your first question to get started.
             </div>
           ) : (
-            filteredQuestions.map((question) => (
+            questions.map((question) => (
               <QuestionRow
                 key={question.id}
                 question={question}
@@ -109,7 +154,7 @@ export default function QuestionManager() {
         <CreateQuestionModal
           onClose={() => setShowCreate(false)}
           onCreate={handleCreate}
-          categories={questionCategories}
+          categories={categoryNames}
         />
       )}
     </div>
@@ -128,7 +173,7 @@ function QuestionRow({
   isEditing: boolean;
   onEdit: () => void;
   onCancelEdit: () => void;
-  onSave: (data: Partial<Question>) => void;
+  onSave: (data: UpdateQuestionDto) => void;
   onDelete: () => void;
 }) {
   const [editData, setEditData] = useState(question);
@@ -217,7 +262,7 @@ function CreateQuestionModal({
   categories,
 }: {
   onClose: () => void;
-  onCreate: (data: Omit<Question, 'id'>) => void;
+  onCreate: (data: CreateQuestionDto) => void;
   categories: string[];
 }) {
   const [formData, setFormData] = useState({

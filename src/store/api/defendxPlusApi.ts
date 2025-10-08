@@ -1,21 +1,23 @@
-// Mock DefendX Plus API - Replace with actual implementation when backend is ready
+// Real DefendX Plus API - Backend Integration Ready
 export {
   // Campaign hooks
+  useGetCampaignsQuery,
+  useGetCampaignQuery,
   useCreateCampaignMutation,
+  useUpdateCampaignMutation,
+  useDeleteCampaignMutation,
   useLaunchCampaignMutation,
   useGetCampaignResultsQuery,
   useGetCampaignAnalyticsQuery,
-  useGetCampaignsQuery,
-  useUpdateCampaignMutation,
-  useDeleteCampaignMutation,
+  useGetCampaignTemplatesQuery,
   
   // Incident hooks
   useReportIncidentMutation,
   
   // Agent hooks
+  useGetAgentsQuery,
   useRegisterAgentMutation,
   useGetAgentConfigQuery,
-  useGetAgentsQuery,
   useSendHeartbeatMutation,
   
   // Telemetry hooks
@@ -23,15 +25,15 @@ export {
   
   // Alert hooks
   useGetAlertsQuery,
+  useGetLiveAlertsQuery,
   useAcknowledgeAlertMutation,
   useCloseAlertMutation,
-  useGetLiveAlertsQuery,
   
   // Scan hooks
+  useGetScanSchedulesQuery,
   useScheduleScanMutation,
   useTriggerScanMutation,
-  useGetScanSchedulesQuery,
   useGetScanResultsQuery,
   useGetScanResultQuery,
   useLazyDownloadScanReportQuery,
-} from './mockDefendXPlusApi';
+} from './realDefendXPlusApi';

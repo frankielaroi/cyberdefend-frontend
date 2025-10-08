@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { useGetLatestCSIResultQuery } from '../../store/api/defendxApi';
+import { useGetLatestCSIResultQuery, useStartAssessmentMutation } from '../../store/api/defendxApi';
 import { useGetPlansQuery } from '../../store/api/billingApi';
 import { useAppDispatch } from '../../store/hooks';
 import { startAssessment } from '../../store/slices/defendxSlice';
-import { mockQuestions, mockAssessment } from '../../data/mockQuestions';
 import { FileText, TrendingUp, Award, Clock, Shield, AlertTriangle, CheckCircle, ArrowRight, Star } from 'lucide-react';
 import AssessmentQuestionnaire from './AssessmentQuestionnaire';
 
@@ -11,6 +10,7 @@ export default function AssessmentDashboard() {
   const dispatch = useAppDispatch();
   const { data: latestResult } = useGetLatestCSIResultQuery();
   const { data: plans = [] } = useGetPlansQuery();
+  const [startAssessmentMutation] = useStartAssessmentMutation();
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
 
@@ -24,16 +24,20 @@ export default function AssessmentDashboard() {
   const handleStartAssessment = async () => {
     try {
       setIsStarting(true);
-      // Use mock data instead of API call
-      const result = {
-        assessment: mockAssessment,
-        questions: mockQuestions
-      };
+      // Start new assessment with backend
+      const result = await startAssessmentMutation({
+        title: 'Cyber Safety Index Assessment',
+        description: 'Comprehensive cybersecurity readiness evaluation',
+        type: 'CSI_ASSESSMENT'
+      }).unwrap();
       
-      dispatch(startAssessment(result));
-      setShowQuestionnaire(true);
-    } catch (error) {
+      if (result.data) {
+        dispatch(startAssessment(result.data));
+        setShowQuestionnaire(true);
+      }
+    } catch (error: any) {
       console.error('Failed to start assessment:', error);
+      // Error will be shown by RTK Query error state
     } finally {
       setIsStarting(false);
     }
@@ -56,11 +60,11 @@ export default function AssessmentDashboard() {
   // Get recommended plans based on current CSI score
   const getRecommendedPlans = () => {
     if (!plans) return [];
-    if (!latestResult?.score) return plans.slice(0, 2);
+    if (!latestResult?.data?.score) return plans.slice(0, 2);
     
-    if (latestResult.score >= 80) {
+    if (latestResult.data.score >= 80) {
       return plans.filter((plan: any) => plan.name.includes('Premium') || plan.name.includes('Enterprise'));
-    } else if (latestResult.score >= 60) {
+    } else if (latestResult.data.score >= 60) {
       return plans.filter((plan: any) => plan.name.includes('Standard') || plan.name.includes('Professional'));
     }
     return plans.filter((plan: any) => plan.name.includes('Basic') || plan.name.includes('Starter'));
@@ -82,7 +86,7 @@ export default function AssessmentDashboard() {
       </div>
 
       {/* Overall CSI Score & Risk Tier */}
-      {latestResult && (
+      {latestResult?.data && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* CSI Score Card */}
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-8 border border-blue-100">
@@ -92,19 +96,19 @@ export default function AssessmentDashboard() {
                   <Shield className="w-8 h-8 text-blue-600" />
                   <h2 className="text-2xl font-bold text-slate-900">Current CSI Score</h2>
                 </div>
-                <p className="text-slate-600">Last updated: {new Date((latestResult as any).completedAt || Date.now()).toLocaleDateString()}</p>
+                <p className="text-slate-600">Last updated: {new Date(latestResult.data.completedAt || Date.now()).toLocaleDateString()}</p>
               </div>
               <div className="text-center">
-                <div className="text-6xl font-bold text-blue-600">{latestResult.score}</div>
+                <div className="text-6xl font-bold text-blue-600">{latestResult.data.score}</div>
                 <div className="text-xl font-semibold text-slate-700 mt-2">out of 100</div>
                 <div className={`inline-block px-4 py-1 rounded-full mt-2 font-bold ${
-                  latestResult.tier === 'A' ? 'bg-green-100 text-green-700' :
-                  latestResult.tier === 'B' ? 'bg-blue-100 text-blue-700' :
-                  latestResult.tier === 'C' ? 'bg-yellow-100 text-yellow-700' :
-                  latestResult.tier === 'D' ? 'bg-orange-100 text-orange-700' :
+                  latestResult.data.tier === 'A' ? 'bg-green-100 text-green-700' :
+                  latestResult.data.tier === 'B' ? 'bg-blue-100 text-blue-700' :
+                  latestResult.data.tier === 'C' ? 'bg-yellow-100 text-yellow-700' :
+                  latestResult.data.tier === 'D' ? 'bg-orange-100 text-orange-700' :
                   'bg-red-100 text-red-700'
                 }`}>
-                  Tier {latestResult.tier}
+                  Tier {latestResult.data.tier}
                 </div>
               </div>
             </div>
@@ -113,7 +117,7 @@ export default function AssessmentDashboard() {
           {/* Risk Tier Card */}
           <div className="bg-white rounded-xl p-8 border border-slate-200 shadow-sm">
             {(() => {
-              const riskTier = getRiskTier(latestResult.score);
+              const riskTier = getRiskTier(latestResult.data.score);
               const IconComponent = riskTier.icon;
               return (
                 <div className="flex items-center justify-between">
@@ -251,12 +255,12 @@ export default function AssessmentDashboard() {
       </div>
 
       {/* Recommended Plans Section */}
-      {latestResult && (
+      {latestResult?.data && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200">
           <div className="p-6 border-b border-slate-200">
             <h2 className="text-xl font-bold text-slate-900">Recommended Plans</h2>
             <p className="text-slate-600 text-sm mt-1">
-              Based on your CSI score of {latestResult.score}, here are our recommendations to improve your cybersecurity posture
+              Based on your CSI score of {latestResult.data.score}, here are our recommendations to improve your cybersecurity posture
             </p>
           </div>
           <div className="p-6">

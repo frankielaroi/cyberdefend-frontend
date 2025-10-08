@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useGetCampaignResultsQuery } from '../../store/api/defendxPlusApi';
+import { useGetCampaignAnalyticsQuery } from '../../store/api/realDefendXPlusApi';
 import { 
   ArrowLeft, 
   Download, 
@@ -8,7 +8,6 @@ import {
   MousePointer, 
   Flag, 
   Shield,
-  Calendar,
   Users,
   TrendingUp,
   TrendingDown,
@@ -34,94 +33,16 @@ interface CampaignTarget {
 }
 
 export default function CampaignDetails() {
-  const { campaignId } = useParams<{ campaignId: string }>();
+  const { id: campaignId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { data: campaignResults, isLoading, error } = useGetCampaignResultsQuery(campaignId!);
-  
+
+  const { data: campaignResults, isLoading, error } = useGetCampaignAnalyticsQuery(campaignId!, {
+    skip: !campaignId
+  });
+
   const [selectedTab, setSelectedTab] = useState<'overview' | 'targets' | 'timeline'>('overview');
   const [filterStatus, setFilterStatus] = useState<'all' | 'delivered' | 'opened' | 'clicked' | 'reported'>('all');
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Mock data for demonstration - in real app this would come from the API
-  const mockTargets: CampaignTarget[] = [
-    {
-      id: '1',
-      email: 'john.doe@company.com',
-      name: 'John Doe',
-      department: 'Finance',
-      delivered: true,
-      opened: true,
-      clicked: true,
-      reported: false,
-      timestamp: '2024-10-04T10:30:00Z',
-      ipAddress: '192.168.1.100',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-    },
-    {
-      id: '2',
-      email: 'jane.smith@company.com',
-      name: 'Jane Smith',
-      department: 'HR',
-      delivered: true,
-      opened: true,
-      clicked: false,
-      reported: true,
-      timestamp: '2024-10-04T11:15:00Z',
-      ipAddress: '192.168.1.105',
-      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
-    },
-    {
-      id: '3',
-      email: 'mike.johnson@company.com',
-      name: 'Mike Johnson',
-      department: 'IT',
-      delivered: true,
-      opened: false,
-      clicked: false,
-      reported: false,
-      timestamp: null,
-      ipAddress: null,
-      userAgent: null
-    }
-  ];
-
-  const timelineEvents = [
-    {
-      id: '1',
-      type: 'campaign_started',
-      timestamp: '2024-10-04T09:00:00Z',
-      description: 'Campaign launched',
-      count: 150
-    },
-    {
-      id: '2',
-      type: 'emails_delivered',
-      timestamp: '2024-10-04T09:15:00Z',
-      description: 'Emails delivered',
-      count: 147
-    },
-    {
-      id: '3',
-      type: 'first_open',
-      timestamp: '2024-10-04T09:45:00Z',
-      description: 'First email opened',
-      count: 1
-    },
-    {
-      id: '4',
-      type: 'first_click',
-      timestamp: '2024-10-04T10:30:00Z',
-      description: 'First link clicked',
-      count: 1
-    },
-    {
-      id: '5',
-      type: 'first_report',
-      timestamp: '2024-10-04T11:15:00Z',
-      description: 'First email reported',
-      count: 1
-    }
-  ];
 
   if (isLoading) {
     return (
@@ -150,12 +71,49 @@ export default function CampaignDetails() {
     );
   }
 
-  const deliveryRate = campaignResults.targetCount > 0 ? (campaignResults.deliveredCount / campaignResults.targetCount) * 100 : 0;
-  const openRate = campaignResults.deliveredCount > 0 ? (campaignResults.openedCount / campaignResults.deliveredCount) * 100 : 0;
-  const clickRate = campaignResults.deliveredCount > 0 ? (campaignResults.clickedCount / campaignResults.deliveredCount) * 100 : 0;
-  const reportRate = campaignResults.deliveredCount > 0 ? (campaignResults.reportedCount / campaignResults.deliveredCount) * 100 : 0;
+  // Extract data from the API response structure (ApiResponse<T> -> .data)
+  const analytics: any = (campaignResults as any)?.data ?? (campaignResults as any) ?? null;
+  const overview = analytics?.overview ?? { totalTargets: 0, emailsSent: 0, emailsDelivered: 0, emailsOpened: 0, linksClicked: 0, credentialsEntered: 0, usersReported: 0, emailsBounced: 0 };
+  const riskMetrics = analytics?.riskMetrics ?? { overallScore: 0, deliveryRate: 0, openRate: 0, clickRate: 0, credentialRate: 0, reportRate: 0 };
 
-  const filteredTargets = mockTargets.filter(target => {
+  // Convert backend userPerformance data to CampaignTarget format
+  const campaignTargets: CampaignTarget[] = analytics?.userPerformance?.map((user: any, index: number) => ({
+    id: (index + 1).toString(),
+    email: user.email || '',
+    name: user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : undefined,
+    department: user.department || undefined,
+    delivered: user.delivered || false,
+    opened: user.opened || false,
+    clicked: user.clicked || false,
+    reported: user.reported || false,
+    timestamp: user.actionTimestamp || null,
+    ipAddress: null, // Not provided in backend response
+    userAgent: null  // Not provided in backend response
+  })) || [];
+
+  // Convert backend timeline data to timeline events format
+  const timelineEvents = analytics?.timeline?.map((event: any, index: number) => ({
+    id: (index + 1).toString(),
+    type: 'timeline_event',
+    timestamp: event.timestamp,
+    description: `Activity recorded`,
+    count: event.emails_sent + event.emails_delivered + event.emails_opened + event.links_clicked + event.credentials_entered + event.phishing_reported,
+    details: {
+      emailsSent: event.emails_sent,
+      emailsDelivered: event.emails_delivered,
+      emailsOpened: event.emails_opened,
+      linksClicked: event.links_clicked,
+      credentialsEntered: event.credentials_entered,
+      phishingReported: event.phishing_reported
+    }
+  })) || [];
+
+  const deliveryRate = overview.totalTargets > 0 ? riskMetrics.deliveryRate : 0;
+  const openRate = riskMetrics.openRate;
+  const clickRate = riskMetrics.clickRate;
+  const reportRate = riskMetrics.reportRate;
+
+  const filteredTargets = campaignTargets.filter(target => {
     const matchesSearch = target.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          target.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          target.department?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -207,28 +165,14 @@ export default function CampaignDetails() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold text-slate-900">{campaignResults.name}</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Campaign Details</h1>
           <div className="flex items-center gap-4 mt-2">
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              campaignResults.status === 'completed' ? 'bg-green-100 text-green-700' :
-              campaignResults.status === 'running' ? 'bg-blue-100 text-blue-700' :
-              campaignResults.status === 'scheduled' ? 'bg-yellow-100 text-yellow-700' :
-              'bg-slate-100 text-slate-700'
-            }`}>
-              {campaignResults.status === 'completed' ? 'Completed' :
-               campaignResults.status === 'running' ? 'Running' :
-               campaignResults.status === 'scheduled' ? 'Scheduled' :
-               'Draft'}
+            <span className="text-sm text-slate-600">
+              Campaign ID: {analytics.campaignId}
             </span>
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${riskLevel.class}`}>
               Risk: {riskLevel.level}
             </span>
-            {campaignResults.startDate && (
-              <span className="text-sm text-slate-600 flex items-center gap-1">
-                <Calendar className="w-4 h-4" />
-                {new Date(campaignResults.startDate).toLocaleDateString()}
-              </span>
-            )}
           </div>
         </div>
         <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
@@ -245,7 +189,7 @@ export default function CampaignDetails() {
               <p className="text-slate-600 text-sm">Delivery Rate</p>
               <p className="text-2xl font-bold text-slate-900">{Math.round(deliveryRate)}%</p>
               <p className="text-xs text-slate-500 mt-1">
-                {campaignResults.deliveredCount} of {campaignResults.targetCount}
+                {overview.emailsDelivered} of {overview.totalTargets}
               </p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
@@ -260,7 +204,7 @@ export default function CampaignDetails() {
               <p className="text-slate-600 text-sm">Open Rate</p>
               <p className="text-2xl font-bold text-slate-900">{Math.round(openRate)}%</p>
               <p className="text-xs text-slate-500 mt-1">
-                {campaignResults.openedCount} opened
+                {overview.emailsOpened} opened
               </p>
             </div>
             <div className="p-3 bg-yellow-100 rounded-lg">
@@ -275,7 +219,7 @@ export default function CampaignDetails() {
               <p className="text-slate-600 text-sm">Click Rate</p>
               <p className="text-2xl font-bold text-slate-900">{Math.round(clickRate)}%</p>
               <p className="text-xs text-slate-500 mt-1">
-                {campaignResults.clickedCount} clicked
+                {overview.linksClicked} clicked
               </p>
             </div>
             <div className="p-3 bg-red-100 rounded-lg">
@@ -290,7 +234,7 @@ export default function CampaignDetails() {
               <p className="text-slate-600 text-sm">Report Rate</p>
               <p className="text-2xl font-bold text-slate-900">{Math.round(reportRate)}%</p>
               <p className="text-xs text-slate-500 mt-1">
-                {campaignResults.reportedCount} reported
+                {overview.usersReported} reported
               </p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
@@ -344,14 +288,14 @@ export default function CampaignDetails() {
                     <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                       <span className="text-sm text-slate-600">Users at Risk</span>
                       <span className="text-sm font-medium text-slate-900">
-                        {campaignResults.clickedCount} ({Math.round(clickRate)}%)
+                        {overview.linksClicked} ({Math.round(clickRate)}%)
                       </span>
                     </div>
                     
                     <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                       <span className="text-sm text-slate-600">Security Aware</span>
                       <span className="text-sm font-medium text-slate-900">
-                        {campaignResults.reportedCount} ({Math.round(reportRate)}%)
+                        {overview.usersReported} ({Math.round(reportRate)}%)
                       </span>
                     </div>
                   </div>
@@ -361,28 +305,28 @@ export default function CampaignDetails() {
                   <h3 className="text-lg font-semibold text-slate-900">Department Breakdown</h3>
                   
                   <div className="space-y-3">
-                    {['Finance', 'HR', 'IT', 'Sales', 'Operations'].map((dept) => {
-                      const deptTargets = Math.floor(Math.random() * 30) + 10;
-                      const deptClicked = Math.floor(Math.random() * deptTargets * 0.3);
-                      const deptRate = (deptClicked / deptTargets) * 100;
-                      
-                      return (
-                        <div key={dept} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    {analytics?.departments && analytics.departments.length > 0 ? (
+                      analytics.departments.map((dept: any, index: number) => (
+                        <div key={dept.name || index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                           <div>
-                            <span className="text-sm font-medium text-slate-900">{dept}</span>
-                            <span className="text-xs text-slate-500 ml-2">({deptTargets} targets)</span>
+                            <span className="text-sm font-medium text-slate-900">{dept.name}</span>
+                            <span className="text-xs text-slate-500 ml-2">({dept.totalTargets || 0} targets)</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-sm text-slate-600">{Math.round(deptRate)}%</span>
-                            {deptRate > 20 ? (
+                            <span className="text-sm text-slate-600">{Math.round(dept.clickRate || 0)}%</span>
+                            {(dept.clickRate || 0) > 20 ? (
                               <TrendingUp className="w-4 h-4 text-red-500" />
                             ) : (
                               <TrendingDown className="w-4 h-4 text-green-500" />
                             )}
                           </div>
                         </div>
-                      );
-                    })}
+                      ))
+                    ) : (
+                      <div className="text-sm text-slate-500 p-3 bg-slate-50 rounded-lg">
+                        No department data available yet
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -489,36 +433,41 @@ export default function CampaignDetails() {
               <h3 className="text-lg font-semibold text-slate-900">Campaign Timeline</h3>
               
               <div className="space-y-4">
-                {timelineEvents.map((event, index) => (
-                  <div key={event.id} className="flex items-start gap-4">
-                    <div className="flex flex-col items-center">
-                      <div className={`w-3 h-3 rounded-full ${
-                        event.type === 'campaign_started' ? 'bg-blue-500' :
-                        event.type === 'emails_delivered' ? 'bg-green-500' :
-                        event.type === 'first_open' ? 'bg-yellow-500' :
-                        event.type === 'first_click' ? 'bg-red-500' :
-                        'bg-purple-500'
-                      }`} />
-                      {index < timelineEvents.length - 1 && (
-                        <div className="w-px h-8 bg-slate-200 mt-2" />
-                      )}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium text-slate-900">{event.description}</p>
-                        <span className="text-xs text-slate-500">
-                          {new Date(event.timestamp).toLocaleString()}
-                        </span>
+                {timelineEvents && timelineEvents.length > 0 ? (
+                  timelineEvents.map((event: any, index: number) => (
+                    <div key={event.id} className="flex items-start gap-4">
+                      <div className="flex flex-col items-center">
+                        <div className="w-3 h-3 rounded-full bg-blue-500" />
+                        {index < timelineEvents.length - 1 && (
+                          <div className="w-px h-8 bg-slate-200 mt-2" />
+                        )}
                       </div>
-                      {event.count && (
-                        <p className="text-sm text-slate-600 mt-1">
-                          Count: {event.count}
-                        </p>
-                      )}
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium text-slate-900">{event.description}</p>
+                          <span className="text-xs text-slate-500">
+                            {new Date(event.timestamp).toLocaleString()}
+                          </span>
+                        </div>
+                        {event.details && (
+                          <div className="text-sm text-slate-600 mt-1 space-y-1">
+                            {event.details.emailsSent > 0 && <p>Emails sent: {event.details.emailsSent}</p>}
+                            {event.details.emailsDelivered > 0 && <p>Emails delivered: {event.details.emailsDelivered}</p>}
+                            {event.details.emailsOpened > 0 && <p>Emails opened: {event.details.emailsOpened}</p>}
+                            {event.details.linksClicked > 0 && <p>Links clicked: {event.details.linksClicked}</p>}
+                            {event.details.credentialsEntered > 0 && <p>Credentials entered: {event.details.credentialsEntered}</p>}
+                            {event.details.phishingReported > 0 && <p>Phishing reported: {event.details.phishingReported}</p>}
+                          </div>
+                        )}
+                      </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-slate-500 p-4 bg-slate-50 rounded-lg">
+                    No timeline events available yet
                   </div>
-                ))}
+                )}
               </div>
             </div>
           )}

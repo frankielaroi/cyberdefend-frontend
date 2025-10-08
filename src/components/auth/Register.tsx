@@ -746,7 +746,7 @@ const Register: React.FC = () => {
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <h5 className="font-medium text-slate-900 text-sm">{org.name}</h5>
-                                <p className="text-xs text-slate-600">{org.industry} • {org.size}</p>
+                                <p className="text-xs text-slate-600">{org.sector} • {org.size}</p>
                               </div>
                               <div className="flex items-center space-x-2">
                                 <span className="text-xs text-slate-500">{org.memberCount} members</span>
@@ -1012,7 +1012,7 @@ const Register: React.FC = () => {
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1">
                                     <h5 className="font-medium text-slate-900">{org.name}</h5>
-                                    <p className="text-sm text-slate-600">{org.industry} • {org.size}</p>
+                                    <p className="text-sm text-slate-600">{org.sector} • {org.size}</p>
                                     {org.description && (
                                       <p className="text-xs text-slate-500 mt-1 line-clamp-2">{org.description}</p>
                                     )}
