@@ -1,6 +1,7 @@
 import { apiSlice } from './apiSlice';
 import type {
   PhishingCampaign,
+  CampaignsResponse,
   CreateCampaignDto,
   UpdateCampaignDto,
   LaunchCampaignDto,
@@ -127,7 +128,7 @@ export interface ScanSchedule {
 export const defendxPlusApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     // Campaign Management
-    getCampaigns: builder.query<PaginatedResponse<PhishingCampaign>, CampaignFiltersDto>({
+    getCampaigns: builder.query<CampaignsResponse, CampaignFiltersDto>({
       query: (params = {}) => ({
         url: '/defendx-plus/campaigns',
         params: {

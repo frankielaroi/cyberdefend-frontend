@@ -10,7 +10,7 @@ import RoleBasedDashboard from './components/dashboard/RoleBasedDashboard';
 
 import AssessmentDashboard from './components/defendx/AssessmentDashboard';
 import StartAssessment from './components/defendx/StartAssessment';
-import AssessmentResult from './components/defendx/AssessmentResult';
+import AssessmentResults from './components/defendx/AssessmentResults';
 import CSIDirectory from './components/defendx/CSIDirectory';
 import PhishingDashboard from './components/defendxplus/PhishingDashboard';
 import MonitoringDashboard from './components/defendxplus/MonitoringDashboard';
@@ -83,7 +83,15 @@ export const router = createBrowserRouter([
         path: 'defendx/assessment/result/:id',
         element: (
           <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
-            <AssessmentResult />
+            <AssessmentResults />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'defendx/demo-results',
+        element: (
+          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
+            <AssessmentResults />
           </ProtectedRoute>
         ),
       },

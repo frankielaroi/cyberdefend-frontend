@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useRegisterMutation } from '../../store/api/authApi';
 import { useCreateOrganizationMutation, useJoinOrganizationMutation, useGetOrganizationsQuery } from '../../store/api/organizationApi';
 import { useAppDispatch } from '../../store/hooks';
 import { setCredentials } from '../../store/slices/authSlice';
-import { Shield, User, Mail, Phone, Lock, CheckCircle, Users, Building2, Plus, Search } from 'lucide-react';
+import { Shield, User, Mail, Phone, Lock, CheckCircle, Users, Building2, Plus, Search, Eye, EyeOff } from 'lucide-react';
 import type { UserRole } from '../../types';
 import { Sector, OrganizationSize } from '../../types';
 
@@ -19,6 +19,10 @@ const Register: React.FC = () => {
   
   const [currentStep, setCurrentStep] = useState<RegistrationStep>('account');
   const [userCredentials, setUserCredentials] = useState<any>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -44,6 +48,17 @@ const Register: React.FC = () => {
     selectedOrgId: '',
     searchQuery: '',
   });
+
+  useEffect(() => {
+    setIsLoaded(true);
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePosition({ x: e.clientX, y: e.clientY });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
   
   // Get public organizations for browsing
   const { data: publicOrgs, isLoading: isLoadingOrgs } = useGetOrganizationsQuery({
@@ -244,71 +259,143 @@ const Register: React.FC = () => {
   const handleSubmit = currentStep === 'account' ? handleAccountSubmit : handleOrganizationSubmit;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-xl mb-4">
-            <Shield className="w-10 h-10 text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 overflow-hidden">
+      {/* Animated Background Effects */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        {/* Grid Pattern */}
+        <div 
+          className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px)
+            `,
+            backgroundSize: '50px 50px',
+            transform: `translate(${mousePosition.x * 0.005}px, ${mousePosition.y * 0.005}px)`
+          }}
+        />
+        
+        {/* Floating Particles */}
+        {Array.from({ length: 40 }).map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-1 h-1 bg-purple-400 rounded-full opacity-20 animate-pulse"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 3}s`,
+              animationDuration: `${2 + Math.random() * 2}s`
+            }}
+          />
+        ))}
+        
+        {/* Gradient Orbs */}
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+      </div>
+
+      <div className={`max-w-4xl w-full relative z-10 transition-all duration-1000 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+        {/* Header */}
+        <div className="text-center mb-12">
+          <div className="relative inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-purple-500 to-pink-600 rounded-3xl mb-6 shadow-2xl">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-400 to-pink-500 rounded-3xl animate-pulse opacity-75" />
+            <Shield className="w-14 h-14 text-white relative z-10" />
+            
+            {/* Security Scanning Animation */}
+            <div className="absolute inset-0 border-2 border-purple-400 rounded-3xl animate-ping opacity-30" />
+            <div className="absolute inset-2 border border-pink-400 rounded-2xl animate-pulse opacity-50" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900">
-            {currentStep === 'account' ? 'Create Your Account' : 'Set Up Your Organization'}
+          
+          <h1 className="text-5xl font-bold mb-4">
+            <span className="bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent">
+              {currentStep === 'account' ? 'Create Your Account' : 'Setup Your Organization'}
+            </span>
           </h1>
-          <p className="text-slate-600 mt-2">
+          <p className="text-slate-300 text-lg max-w-2xl mx-auto">
             {currentStep === 'account' 
-              ? 'Join CyberDefend 360 to strengthen your cybersecurity'
-              : 'Create or join an organization to get started'
+              ? 'Create your account and join our security platform'
+              : 'Set up your organization and invite your team'
             }
           </p>
           
-          {/* Step Progress Indicator */}
-          <div className="flex items-center justify-center mt-6 space-x-4">
-            <div className={`flex items-center ${currentStep === 'account' ? 'text-blue-600' : 'text-green-600'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                currentStep === 'account' ? 'bg-blue-100 border-2 border-blue-600' : 'bg-green-100 border-2 border-green-600'
+          {/* Enhanced Step Progress Indicator */}
+          <div className="flex items-center justify-center mt-8 space-x-8">
+            <div className={`flex items-center transition-all duration-500 ${currentStep === 'account' ? 'text-purple-400' : 'text-green-400'}`}>
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold relative overflow-hidden ${
+                currentStep === 'account' 
+                  ? 'bg-gradient-to-br from-purple-500 to-pink-500 border-2 border-purple-400' 
+                  : 'bg-gradient-to-br from-green-500 to-blue-500 border-2 border-green-400'
               }`}>
-                {currentStep === 'account' ? '1' : <CheckCircle className="w-5 h-5" />}
+                <div className="absolute inset-0 bg-white/10 animate-pulse" />
+                <span className="relative z-10">
+                  {currentStep === 'account' ? '01' : <CheckCircle className="w-6 h-6" />}
+                </span>
               </div>
-              <span className="ml-2 text-sm font-medium">Account</span>
+              <span className="ml-3 text-lg font-medium">Account Setup</span>
             </div>
-            <div className={`w-8 h-px ${currentStep === 'organization' ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-            <div className={`flex items-center ${currentStep === 'organization' ? 'text-blue-600' : 'text-slate-400'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                currentStep === 'organization' ? 'bg-blue-100 border-2 border-blue-600' : 'bg-slate-100 border-2 border-slate-300'
+            
+            <div className={`w-16 h-1 rounded-full transition-all duration-500 ${
+              currentStep === 'organization' ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-slate-700'
+            }`} />
+            
+            <div className={`flex items-center transition-all duration-500 ${currentStep === 'organization' ? 'text-purple-400' : 'text-slate-500'}`}>
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold relative overflow-hidden ${
+                currentStep === 'organization' 
+                  ? 'bg-gradient-to-br from-purple-500 to-pink-500 border-2 border-purple-400' 
+                  : 'bg-slate-800 border-2 border-slate-600'
               }`}>
-                2
+                <div className="absolute inset-0 bg-white/10 animate-pulse" />
+                <span className="relative z-10">02</span>
               </div>
-              <span className="ml-2 text-sm font-medium">Organization</span>
+              <span className="ml-3 text-lg font-medium">Organization Setup</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-8">
-          {(error || orgError) && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-700 text-sm">
-                {(() => {
-                  const currentError = error || orgError;
-                  if (currentError && typeof currentError === 'object' && 'message' in currentError) {
-                    return (currentError as { message: string }).message;
-                  }
-                  if (currentError && typeof currentError === 'string') {
-                    return currentError;
-                  }
-                  return currentStep === 'account' ? 'Registration failed. Please try again.' : 'Organization setup failed. Please try again.';
-                })()}
-              </p>
-            </div>
-          )}
+        {/* Registration Form */}
+        <div className="relative bg-slate-800/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 p-10 shadow-2xl overflow-hidden">
+          {/* Animated Border */}
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-blue-500/20 rounded-3xl opacity-0 hover:opacity-100 transition-opacity animate-pulse" />
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 rounded-t-3xl" />
+          
+          <div className="relative z-10">
+            {/* Security Alert */}
+            {(error || orgError) && (
+              <div className="mb-8 p-6 bg-red-500/10 border border-red-500/30 rounded-2xl backdrop-blur-sm animate-pulse">
+                <div className="flex items-center gap-4">
+                  <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm font-bold">!</span>
+                  </div>
+                  <div>
+                    <h4 className="text-red-300 font-semibold mb-1">ERROR</h4>
+                    <p className="text-red-200 text-sm">
+                      {(() => {
+                        const currentError = error || orgError;
+                        if (currentError && typeof currentError === 'object' && 'message' in currentError) {
+                          return (currentError as { message: string }).message;
+                        }
+                        if (currentError && typeof currentError === 'string') {
+                          return currentError;
+                        }
+                        return currentStep === 'account' ? 'Account creation failed. Please try again.' : 'Organization setup failed. Please try again.';
+                      })()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {currentStep === 'account' && (
-              <>
-                {/* User Details Section */}
-                <div className="space-y-6">
-                  <h3 className="text-lg font-semibold text-slate-900 flex items-center">
-                    <User className="w-5 h-5 mr-2 text-blue-600" />
-                    Personal Details
-                  </h3>
+            <form onSubmit={handleSubmit} className="space-y-8">
+              {currentStep === 'account' && (
+                <>
+                  {/* Account Information Section */}
+                  <div className="space-y-8">
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
+                        <User className="w-6 h-6 text-white" />
+                      </div>
+                      <h3 className="text-2xl font-bold text-white">Personal Information</h3>
+                    </div>
                   
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
@@ -890,8 +977,9 @@ const Register: React.FC = () => {
                   </Link>
                 </p>
               </div>
-            )}
-          </form>
+              )}
+            </form>
+          </div>
         </div>
       </div>
     </div>

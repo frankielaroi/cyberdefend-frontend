@@ -54,30 +54,30 @@ const DashboardLayout = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-slate-900">
       {/* Sidebar */}
-      <div className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-white shadow-lg transition-all duration-300 ease-in-out flex flex-col`}>
+      <div className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-slate-800 shadow-xl transition-all duration-300 ease-in-out flex flex-col border-r border-slate-700`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between p-4 border-b border-slate-700">
           {!sidebarCollapsed && (
             <div className="flex items-center space-x-2">
-              <ShieldCheckIcon className="h-8 w-8 text-blue-600" />
-              <span className="text-xl font-bold text-gray-900">CyberDefend</span>
+              <ShieldCheckIcon className="h-8 w-8 text-blue-400" />
+              <span className="text-xl font-bold text-white">CyberDefend</span>
             </div>
           )}
           {sidebarCollapsed && (
             <div className="flex items-center justify-center w-full">
-              <ShieldCheckIcon className="h-8 w-8 text-blue-600" />
+              <ShieldCheckIcon className="h-8 w-8 text-blue-400" />
             </div>
           )}
           <button
             onClick={toggleSidebar}
-            className="p-1 rounded-md hover:bg-gray-100 transition-colors"
+            className="p-1 rounded-md hover:bg-slate-700 transition-colors"
           >
             {sidebarCollapsed ? (
-              <ChevronRightIcon className="h-5 w-5 text-gray-500" />
+              <ChevronRightIcon className="h-5 w-5 text-slate-400" />
             ) : (
-              <ChevronLeftIcon className="h-5 w-5 text-gray-500" />
+              <ChevronLeftIcon className="h-5 w-5 text-slate-400" />
             )}
           </button>
         </div>
@@ -86,7 +86,7 @@ const DashboardLayout = () => {
         <SideNavigation collapsed={sidebarCollapsed} />
 
         {/* User Profile & Logout */}
-        <div className="border-t border-gray-200 p-4 mt-auto">
+        <div className="border-t border-slate-700 p-4 mt-auto">
           {!sidebarCollapsed && user && (
             <div className="flex items-center space-x-3 mb-3">
               <div className="flex-shrink-0">
@@ -95,11 +95,11 @@ const DashboardLayout = () => {
                 </div>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
+                <p className="text-sm font-medium text-white truncate">
                   {user.firstName} {user.lastName}
                 </p>
-                <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                <p className="text-xs text-blue-600 font-medium">{user.role.replace('_', ' ')}</p>
+                <p className="text-xs text-slate-400 truncate">{user.email}</p>
+                <p className="text-xs text-blue-400 font-medium">{user.role.replace('_', ' ')}</p>
               </div>
             </div>
           )}
@@ -107,7 +107,7 @@ const DashboardLayout = () => {
             onClick={handleLogout}
             className={`${
               sidebarCollapsed ? 'w-8 h-8 p-1' : 'w-full px-3 py-2'
-            } flex items-center justify-center text-sm font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors`}
+            } flex items-center justify-center text-sm font-medium text-slate-300 hover:text-red-400 hover:bg-red-900/20 rounded-md transition-colors`}
             title={sidebarCollapsed ? 'Logout' : ''}
           >
             <ArrowRightOnRectangleIcon className={`${sidebarCollapsed ? 'h-6 w-6' : 'h-4 w-4 mr-2'}`} />
@@ -119,20 +119,20 @@ const DashboardLayout = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Header */}
-        <header className="bg-white shadow-sm border-b border-gray-200">
+        <header className="bg-slate-800 shadow-lg border-b border-slate-700">
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center space-x-4">
               <div>
-                <h1 className="text-2xl font-semibold text-gray-900">
+                <h1 className="text-2xl font-semibold text-white">
                   {getPageTitle()}
                 </h1>
                 {user?.organizationName && (
-                  <p className="text-sm text-gray-600">{user.organizationName}</p>
+                  <p className="text-sm text-slate-300">{user.organizationName}</p>
                 )}
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <button className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-md transition-colors relative">
+              <button className="p-2 text-slate-400 hover:text-slate-300 hover:bg-slate-700 rounded-md transition-colors relative">
                 <BellIcon className="h-5 w-5" />
                 {/* Notification badge */}
                 <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
@@ -140,10 +140,10 @@ const DashboardLayout = () => {
               {user && (
                 <div className="flex items-center space-x-3">
                   <div className="text-right">
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-sm font-medium text-white">
                       {user.firstName} {user.lastName}
                     </span>
-                    <p className="text-xs text-gray-500">{user.role.replace('_', ' ')}</p>
+                    <p className="text-xs text-slate-300">{user.role.replace('_', ' ')}</p>
                   </div>
                   <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center">
                     <UserIcon className="h-5 w-5 text-white" />
@@ -155,7 +155,7 @@ const DashboardLayout = () => {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto bg-gray-50">
+        <main className="flex-1 overflow-y-auto bg-slate-900">
           <div className="p-6">
             <Outlet />
           </div>

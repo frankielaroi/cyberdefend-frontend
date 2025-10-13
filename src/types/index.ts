@@ -100,23 +100,49 @@ export interface PhishingCampaign {
   id: string;
   name: string;
   description?: string;
-  organizationId: string;
-  status: 'DRAFT' | 'SCHEDULED' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED';
+  templateId: string;
   template: string;
   subject: string;
   senderName: string;
   senderEmail: string;
   landingPageUrl?: string;
-  targetCount: number;
-  deliveredCount: number;
-  openedCount: number;
-  clickedCount: number;
-  reportedCount: number;
+  status: 'DRAFT' | 'SCHEDULED' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED';
   scheduledAt?: string;
-  startDate?: string;
-  endDate?: string;
+  launchedAt?: string;
+  completedAt?: string;
+  pausedAt?: string;
+  targetCount: number;
+  emailsSent: number;
+  emailsDelivered: number;
+  emailsOpened: number;
+  linksClicked: number;
+  credentialsEntered: number;
+  phishingReported: number;
+  emailsBounced: number;
+  createdBy: string;
+  organizationId: string;
   createdAt: string;
   updatedAt: string;
+  creator?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  _count?: {
+    targets: number;
+    events: number;
+  };
+}
+
+export interface CampaignsResponse {
+  campaigns: PhishingCampaign[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export interface Alert {
@@ -415,6 +441,41 @@ export interface AssessmentResultDto {
   }>;
   categoryBreakdown?: Record<string, number>;
   benchmark: BenchmarkData;
+}
+
+// Assessment Results UI Types
+export interface AssessmentScoreData {
+  score: number;
+  totalQuestions: number;
+  tier: 'A' | 'B' | 'C' | 'D' | 'F';
+  percentage: number;
+}
+
+export interface CategoryChartData {
+  category: string;
+  value: number;
+  percentage: number;
+  color: string;
+}
+
+export interface ComplianceAlert {
+  type: 'CSA_DATA_PROTECTION' | 'CYBER_SECURITY_ACT' | 'GDPR' | 'ISO27001';
+  title: string;
+  description: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  year?: number;
+}
+
+export interface AssessmentResultsDisplay {
+  scoreData: AssessmentScoreData;
+  chartData: CategoryChartData[];
+  alerts: ComplianceAlert[];
+  recommendations: Array<{
+    title: string;
+    description: string;
+    priority: 'high' | 'medium' | 'low';
+  }>;
+  actionPlanUrl?: string;
 }
 
 // DefendX+ Phishing Campaign Types
