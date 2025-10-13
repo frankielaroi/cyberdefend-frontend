@@ -185,12 +185,14 @@ const Register: React.FC = () => {
 
       const result = await register(registerPayload).unwrap();
 
-      // If user has organization data already, skip organization step
+      // Store credentials immediately to enable authenticated API calls
+      dispatch(setCredentials(result));
+
+      // If user has organization data already, navigate to dashboard
       if (result?.user?.organization || registerPayload.organizationId || registerPayload.organization) {
-        dispatch(setCredentials(result));
         navigate('/dashboard');
       } else {
-        // Otherwise proceed to organization setup
+        // Otherwise proceed to organization setup with auth token now available
         setUserCredentials(result);
         setCurrentStep('organization');
       }
@@ -226,11 +228,8 @@ const Register: React.FC = () => {
         }).unwrap();
       }
 
-      // Store credentials and navigate to dashboard
-      if (userCredentials) {
-        dispatch(setCredentials(userCredentials));
-        navigate('/dashboard');
-      }
+      // Organization operations completed successfully, navigate to dashboard
+      navigate('/dashboard');
     } catch (err: any) {
       console.error('Organization setup failed:', err);
       // Error will be shown by the RTK Query error state
@@ -238,18 +237,15 @@ const Register: React.FC = () => {
   };
 
   const handleSkipOrganization = () => {
-    // Store credentials and navigate to dashboard without organization
-    if (userCredentials) {
-      dispatch(setCredentials(userCredentials));
-      navigate('/dashboard');
-    }
+    // Navigate to dashboard (credentials already stored from account creation)
+    navigate('/dashboard');
   };
 
   const handleSubmit = currentStep === 'account' ? handleAccountSubmit : handleOrganizationSubmit;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
-      <div className="max-w-lg w-full">
+      <div className="max-w-2xl w-full">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-xl mb-4">
             <Shield className="w-10 h-10 text-white" />
@@ -304,496 +300,234 @@ const Register: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-8">
             {currentStep === 'account' && (
               <>
-                {/* Account Creation Form */}
                 {/* User Details Section */}
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <h3 className="text-lg font-semibold text-slate-900 flex items-center">
                     <User className="w-5 h-5 mr-2 text-blue-600" />
                     Personal Details
                   </h3>
-              
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-slate-700 mb-2">
-                    First Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="firstName"
-                    name="firstName"
-                    type="text"
-                    required
-                    value={formData.firstName}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      formErrors.firstName ? 'border-red-300' : 'border-slate-300'
-                    }`}
-                    placeholder="John"
-                  />
-                  {formErrors.firstName && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.firstName}</p>
-                  )}
-                </div>
-                
-                <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium text-slate-700 mb-2">
-                    Last Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="lastName"
-                    name="lastName"
-                    type="text"
-                    required
-                    value={formData.lastName}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      formErrors.lastName ? 'border-red-300' : 'border-slate-300'
-                    }`}
-                    placeholder="Doe"
-                  />
-                  {formErrors.lastName && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.lastName}</p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
-                  Email Address <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    required
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      formErrors.email ? 'border-red-300' : 'border-slate-300'
-                    }`}
-                    placeholder="admin@yourcompany.com"
-                  />
-                </div>
-                {formErrors.email && (
-                  <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-slate-700 mb-2">
-                  Phone Number
-                </label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="+233 XX XXX XXXX"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="role" className="block text-sm font-medium text-slate-700 mb-2">
-                  Role <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <select
-                    id="role"
-                    name="role"
-                    value={formData.role}
-                    onChange={handleInputChange}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white ${
-                      formErrors.role ? 'border-red-300' : 'border-slate-300'
-                    }`}
-                  >
-                    <option value="ORG_ADMIN">Organization Administrator</option>
-                    <option value="ORG_MANAGER">Organization Manager</option>
-                    <option value="END_USER">End User / Employee</option>
-                    <option value="CSA_ADMIN">CSA Administrator</option>
-                  </select>
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </div>
-                {formErrors.role && (
-                  <p className="mt-1 text-sm text-red-600">{formErrors.role}</p>
-                )}
-                <div className="mt-2 text-xs text-slate-500 space-y-1">
-                  <p><strong>Org Admin:</strong> Full access to organization settings and billing</p>
-                  <p><strong>Org Manager:</strong> Assessment and monitoring tools access</p>
-                  <p><strong>End User:</strong> Basic assessment participation</p>
-                  <p><strong>CSA Admin:</strong> System administration (CSA staff only)</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Password Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-slate-900 flex items-center">
-                <Lock className="w-5 h-5 mr-2 text-blue-600" />
-                Account Security
-              </h3>
-              
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
-                  Password <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  minLength={8}
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    formErrors.password ? 'border-red-300' : 'border-slate-300'
-                  }`}
-                  placeholder="••••••••"
-                />
-                {formErrors.password && (
-                  <p className="mt-1 text-sm text-red-600">{formErrors.password}</p>
-                )}
-                <p className="mt-1 text-xs text-slate-500">Minimum 8 characters</p>
-              </div>
-
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-2">
-                  Confirm Password <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  required
-                  value={formData.confirmPassword}
-                  onChange={handleInputChange}
-                  className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    formErrors.confirmPassword ? 'border-red-300' : 'border-slate-300'
-                  }`}
-                  placeholder="••••••••"
-                />
-                {formErrors.confirmPassword && (
-                  <p className="mt-1 text-sm text-red-600">{formErrors.confirmPassword}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Terms and Conditions */}
-            <div className="space-y-4">
-              <div className="flex items-start">
-                <input
-                  id="acceptTerms"
-                  name="acceptTerms"
-                  type="checkbox"
-                  checked={formData.acceptTerms}
-                  onChange={handleInputChange}
-                  className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
-                />
-                <label htmlFor="acceptTerms" className="ml-3 text-sm text-slate-700">
-                  I agree to the{' '}
-                  <Link to="/terms" className="text-blue-600 hover:text-blue-700 font-medium">
-                    Terms of Service
-                  </Link>{' '}
-                  and{' '}
-                  <Link to="/privacy" className="text-blue-600 hover:text-blue-700 font-medium">
-                    Privacy Policy
-                  </Link>
-                  <span className="text-red-500"> *</span>
-                </label>
-              </div>
-              {formErrors.acceptTerms && (
-                <p className="text-sm text-red-600">{formErrors.acceptTerms}</p>
-              )}
-            </div>
-
-            {/* Organization Setup Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-slate-900 flex items-center">
-                <Building2 className="w-5 h-5 mr-2 text-blue-600" />
-                Organization Setup
-              </h3>
-
-              {/* Action Selection */}
-              <div className="space-y-4">
-                <p className="text-sm text-slate-600">Choose how you want to proceed:</p>
-                <div className="grid grid-cols-3 gap-3">
-                  <label className={`relative cursor-pointer p-3 rounded-lg border-2 transition-colors ${
-                    orgData.action === 'create' ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-white'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="action"
-                      value="create"
-                      checked={orgData.action === 'create'}
-                      onChange={handleOrgInputChange}
-                      className="sr-only"
-                    />
-                    <div className="text-center">
-                      <Plus className="w-6 h-6 mx-auto mb-1 text-blue-600" />
-                      <h4 className="font-semibold text-sm text-slate-900">Create New</h4>
-                      <p className="text-xs text-slate-600 mt-1">Start fresh</p>
-                    </div>
-                  </label>
-
-                  <label className={`relative cursor-pointer p-3 rounded-lg border-2 transition-colors ${
-                    orgData.action === 'browse' ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-white'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="action"
-                      value="browse"
-                      checked={orgData.action === 'browse'}
-                      onChange={handleOrgInputChange}
-                      className="sr-only"
-                    />
-                    <div className="text-center">
-                      <Search className="w-6 h-6 mx-auto mb-1 text-blue-600" />
-                      <h4 className="font-semibold text-sm text-slate-900">Browse & Join</h4>
-                      <p className="text-xs text-slate-600 mt-1">Find public orgs</p>
-                    </div>
-                  </label>
-
-                  <label className={`relative cursor-pointer p-3 rounded-lg border-2 transition-colors ${
-                    orgData.action === 'join' ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-white'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="action"
-                      value="join"
-                      checked={orgData.action === 'join'}
-                      onChange={handleOrgInputChange}
-                      className="sr-only"
-                    />
-                    <div className="text-center">
-                      <Users className="w-6 h-6 mx-auto mb-1 text-blue-600" />
-                      <h4 className="font-semibold text-sm text-slate-900">Use Invite</h4>
-                      <p className="text-xs text-slate-600 mt-1">Have a code</p>
-                    </div>
-                  </label>
-                </div>
-              </div>
-
-              {/* Create Organization Form */}
-              {orgData.action === 'create' && (
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="organizationName" className="block text-sm font-medium text-slate-700 mb-2">
-                      Organization Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      id="organizationName"
-                      name="organizationName"
-                      type="text"
-                      required
-                      value={orgData.organizationName}
-                      onChange={handleOrgInputChange}
-                      className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                        formErrors.organizationName ? 'border-red-300' : 'border-slate-300'
-                      }`}
-                      placeholder="Your Company Name"
-                    />
-                    {formErrors.organizationName && (
-                      <p className="mt-1 text-sm text-red-600">{formErrors.organizationName}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
-                      Institutional Email <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      required
-                      value={orgData.email}
-                      onChange={handleOrgInputChange}
-                      className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                        formErrors.orgEmail ? 'border-red-300' : 'border-slate-300'
-                      }`}
-                      placeholder="contact@yourcompany.com"
-                    />
-                    {formErrors.orgEmail && (
-                      <p className="mt-1 text-sm text-red-600">{formErrors.orgEmail}</p>
-                    )}
-                  </div>
-
-                 
-
-                  <div className="grid grid-cols-2 gap-4">
+                  
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                      <label htmlFor="industry" className="block text-sm font-medium text-slate-700 mb-2">
-                        Industry <span className="text-red-500">*</span>
+                      <label htmlFor="firstName" className="block text-sm font-medium text-slate-700 mb-2">
+                        First Name <span className="text-red-500">*</span>
                       </label>
-                      <select
-                        id="industry"
-                        name="industry"
-                        value={orgData.industry}
-                        onChange={handleOrgInputChange}
-                        className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white ${
-                          formErrors.industry ? 'border-red-300' : 'border-slate-300'
+                      <input
+                        id="firstName"
+                        name="firstName"
+                        type="text"
+                        required
+                        value={formData.firstName}
+                        onChange={handleInputChange}
+                        className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          formErrors.firstName ? 'border-red-300' : 'border-slate-300'
                         }`}
-                      >
-                        <option value="">Select Industry</option>
-                        <option value={Sector.BANKING}>Banking</option>
-                        <option value={Sector.TELECOMMUNICATIONS}>Telecommunications</option>
-                        <option value={Sector.INSURANCE}>Insurance</option>
-                        <option value={Sector.GOVERNMENT}>Government</option>
-                        <option value={Sector.HEALTHCARE}>Healthcare</option>
-                        <option value={Sector.EDUCATION}>Education</option>
-                        <option value={Sector.ENERGY}>Energy</option>
-                        <option value={Sector.MANUFACTURING}>Manufacturing</option>
-                        <option value={Sector.RETAIL}>Retail</option>
-                        <option value={Sector.LOGISTICS}>Logistics</option>
-                        <option value={Sector.TECHNOLOGY}>Technology</option>
-                        <option value={Sector.NGO}>NGO</option>
-                        <option value={Sector.OTHER}>Other</option>
-                      </select>
-                      {formErrors.industry && (
-                        <p className="mt-1 text-sm text-red-600">{formErrors.industry}</p>
+                        placeholder="John"
+                      />
+                      {formErrors.firstName && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.firstName}</p>
+                      )}
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="lastName" className="block text-sm font-medium text-slate-700 mb-2">
+                        Last Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="lastName"
+                        name="lastName"
+                        type="text"
+                        required
+                        value={formData.lastName}
+                        onChange={handleInputChange}
+                        className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          formErrors.lastName ? 'border-red-300' : 'border-slate-300'
+                        }`}
+                        placeholder="Doe"
+                      />
+                      {formErrors.lastName && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.lastName}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
+                        Email Address <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <input
+                          id="email"
+                          name="email"
+                          type="email"
+                          required
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          className={`w-full pl-10 pr-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                            formErrors.email ? 'border-red-300' : 'border-slate-300'
+                          }`}
+                          placeholder="admin@yourcompany.com"
+                        />
+                      </div>
+                      {formErrors.email && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>
                       )}
                     </div>
 
                     <div>
-                      <label htmlFor="size" className="block text-sm font-medium text-slate-700 mb-2">
-                        Size <span className="text-red-500">*</span>
+                      <label htmlFor="phone" className="block text-sm font-medium text-slate-700 mb-2">
+                        Phone Number
                       </label>
-                      <select
-                        id="size"
-                        name="size"
-                        value={orgData.size}
-                        onChange={handleOrgInputChange}
-                        className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white ${
-                          formErrors.size ? 'border-red-300' : 'border-slate-300'
-                        }`}
-                      >
-                        <option value="">Select Size</option>
-                        <option value={OrganizationSize.MICRO}>1-5 employees</option>
-                        <option value={OrganizationSize.SMALL}>6-50 employees</option>
-                        <option value={OrganizationSize.MEDIUM}>51-250 employees</option>
-                        <option value={OrganizationSize.LARGE}>251-1000 employees</option>
-                        <option value={OrganizationSize.ENTERPRISE}>1000+ employees</option>
-                      </select>
-                      {formErrors.size && (
-                        <p className="mt-1 text-sm text-red-600">{formErrors.size}</p>
-                      )}
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <input
+                          id="phone"
+                          name="phone"
+                          type="tel"
+                          value={formData.phone}
+                          onChange={handleInputChange}
+                          className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="+233 XX XXX XXXX"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
 
-              {/* Browse Organizations */}
-              {orgData.action === 'browse' && (
-                <div className="space-y-4">
                   <div>
-                    <label htmlFor="searchQuery" className="block text-sm font-medium text-slate-700 mb-2">
-                      Search Organizations
+                    <label htmlFor="role" className="block text-sm font-medium text-slate-700 mb-2">
+                      Role <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                      <input
-                        id="searchQuery"
-                        name="searchQuery"
-                        type="text"
-                        value={orgData.searchQuery}
-                        onChange={handleOrgInputChange}
-                        className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Search by organization name..."
-                      />
+                      <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <select
+                        id="role"
+                        name="role"
+                        value={formData.role}
+                        onChange={handleInputChange}
+                        className={`w-full pl-10 pr-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white ${
+                          formErrors.role ? 'border-red-300' : 'border-slate-300'
+                        }`}
+                      >
+                        <option value="ORG_ADMIN">Organization Administrator</option>
+                        <option value="ORG_MANAGER">Organization Manager</option>
+                        <option value="END_USER">End User</option>
+                      </select>
+                    </div>
+                    {formErrors.role && (
+                      <p className="mt-1 text-sm text-red-600">{formErrors.role}</p>
+                    )}
+                    <div className="mt-2 text-xs text-slate-500 space-y-1">
+                      <p><strong>Admin:</strong> Full organization management access</p>
+                      <p><strong>Manager:</strong> Can manage users and view reports</p>
+                      <p><strong>End User:</strong> Basic user access</p>
                     </div>
                   </div>
+                </div>
 
-                  {/* Organization List */}
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-medium text-slate-700">Available Organizations</h4>
-                    {isLoadingOrgs ? (
-                      <div className="text-center py-4">
-                        <div className="inline-block w-6 h-6 border-2 border-blue-500 border-r-transparent rounded-full animate-spin"></div>
-                        <p className="text-sm text-slate-600 mt-2">Loading organizations...</p>
-                      </div>
-                    ) : publicOrgs?.data?.length ? (
-                      <div className="max-h-48 overflow-y-auto space-y-2">
-                        {publicOrgs.data.map((org) => (
-                          <label
-                            key={org.id}
-                            className={`block p-3 border rounded-lg cursor-pointer transition-colors ${
-                              orgData.selectedOrgId === org.id
-                                ? 'border-blue-500 bg-blue-50'
-                                : 'border-slate-200 hover:border-slate-300'
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name="selectedOrgId"
-                              value={org.id}
-                              checked={orgData.selectedOrgId === org.id}
-                              onChange={handleOrgInputChange}
-                              className="sr-only"
-                            />
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <h5 className="font-medium text-slate-900 text-sm">{org.name}</h5>
-                                <p className="text-xs text-slate-600">{org.sector} • {org.size}</p>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <span className="text-xs text-slate-500">{org.memberCount} members</span>
-                                <Building2 className="w-4 h-4 text-slate-400" />
-                              </div>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 text-slate-500">
-                        <Building2 className="w-6 h-6 mx-auto mb-2" />
-                        <p className="text-sm">No organizations found</p>
-                        <p className="text-xs">Try a different search term</p>
-                      </div>
-                    )}
-                    {formErrors.selectedOrgId && (
-                      <p className="text-sm text-red-600">{formErrors.selectedOrgId}</p>
-                    )}
+                {/* Password Section */}
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold text-slate-900 flex items-center">
+                    <Lock className="w-5 h-5 mr-2 text-blue-600" />
+                    Account Security
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
+                        Password <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="password"
+                        name="password"
+                        type="password"
+                        required
+                        minLength={8}
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          formErrors.password ? 'border-red-300' : 'border-slate-300'
+                        }`}
+                        placeholder="••••••••"
+                      />
+                      {formErrors.password && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.password}</p>
+                      )}
+                      <p className="mt-1 text-xs text-slate-500">Minimum 8 characters</p>
+                    </div>
+
+                    <div>
+                      <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-2">
+                        Confirm Password <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type="password"
+                        required
+                        value={formData.confirmPassword}
+                        onChange={handleInputChange}
+                        className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          formErrors.confirmPassword ? 'border-red-300' : 'border-slate-300'
+                        }`}
+                        placeholder="••••••••"
+                      />
+                      {formErrors.confirmPassword && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.confirmPassword}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              )}
 
-              {/* Join with Invite Code */}
-              {orgData.action === 'join' && (
+                {/* Terms and Conditions */}
                 <div className="space-y-4">
-                  <p className="text-sm text-slate-600">
-                    You'll be able to enter your invitation code after creating your account.
-                  </p>
+                  <div className="flex items-start">
+                    <input
+                      id="acceptTerms"
+                      name="acceptTerms"
+                      type="checkbox"
+                      checked={formData.acceptTerms}
+                      onChange={handleInputChange}
+                      className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+                    />
+                    <label htmlFor="acceptTerms" className="ml-3 text-sm text-slate-700">
+                      I agree to the{' '}
+                      <Link to="/terms" className="text-blue-600 hover:text-blue-700 font-medium">
+                        Terms of Service
+                      </Link>
+                      {' '}and{' '}
+                      <Link to="/privacy" className="text-blue-600 hover:text-blue-700 font-medium">
+                        Privacy Policy
+                      </Link>
+                      <span className="text-red-500"> *</span>
+                    </label>
+                  </div>
+                  {formErrors.acceptTerms && (
+                    <p className="text-sm text-red-600">{formErrors.acceptTerms}</p>
+                  )}
                 </div>
-              )}
-            </div>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex items-center justify-center"
-            >
-              {isLoading ? (
-                'Creating Account...'
-              ) : (
-                <>
-                  <User className="w-5 h-5 mr-2" />
-                  Continue to Organization Setup
-                </>
-              )}
-            </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex items-center justify-center"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-r-transparent rounded-full animate-spin mr-2"></div>
+                      Creating Account...
+                    </>
+                  ) : (
+                    <>
+                      <User className="w-5 h-5 mr-2" />
+                      Continue to Organization Setup
+                    </>
+                  )}
+                </button>
               </>
             )}
 
@@ -809,8 +543,8 @@ const Register: React.FC = () => {
                   {/* Action Selection */}
                   <div className="space-y-4">
                     <p className="text-sm text-slate-600">Choose how you want to proceed:</p>
-                    <div className="grid grid-cols-3 gap-3">
-                      <label className={`relative cursor-pointer p-3 rounded-lg border-2 transition-colors ${
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <label className={`relative cursor-pointer p-4 rounded-lg border-2 transition-colors ${
                         orgData.action === 'create' ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-white'
                       }`}>
                         <input
@@ -822,13 +556,13 @@ const Register: React.FC = () => {
                           className="sr-only"
                         />
                         <div className="text-center">
-                          <Plus className="w-6 h-6 mx-auto mb-1 text-blue-600" />
+                          <Plus className="w-6 h-6 mx-auto mb-2 text-blue-600" />
                           <h4 className="font-semibold text-sm text-slate-900">Create New</h4>
-                          <p className="text-xs text-slate-600 mt-1">Start fresh</p>
+                          <p className="text-xs text-slate-600 mt-1">Start fresh organization</p>
                         </div>
                       </label>
 
-                      <label className={`relative cursor-pointer p-3 rounded-lg border-2 transition-colors ${
+                      <label className={`relative cursor-pointer p-4 rounded-lg border-2 transition-colors ${
                         orgData.action === 'browse' ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-white'
                       }`}>
                         <input
@@ -840,13 +574,13 @@ const Register: React.FC = () => {
                           className="sr-only"
                         />
                         <div className="text-center">
-                          <Search className="w-6 h-6 mx-auto mb-1 text-blue-600" />
+                          <Search className="w-6 h-6 mx-auto mb-2 text-blue-600" />
                           <h4 className="font-semibold text-sm text-slate-900">Browse & Join</h4>
-                          <p className="text-xs text-slate-600 mt-1">Find public orgs</p>
+                          <p className="text-xs text-slate-600 mt-1">Find public organizations</p>
                         </div>
                       </label>
 
-                      <label className={`relative cursor-pointer p-3 rounded-lg border-2 transition-colors ${
+                      <label className={`relative cursor-pointer p-4 rounded-lg border-2 transition-colors ${
                         orgData.action === 'join' ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-white'
                       }`}>
                         <input
@@ -858,9 +592,9 @@ const Register: React.FC = () => {
                           className="sr-only"
                         />
                         <div className="text-center">
-                          <Users className="w-6 h-6 mx-auto mb-1 text-blue-600" />
+                          <Users className="w-6 h-6 mx-auto mb-2 text-blue-600" />
                           <h4 className="font-semibold text-sm text-slate-900">Use Invite</h4>
-                          <p className="text-xs text-slate-600 mt-1">Have a code</p>
+                          <p className="text-xs text-slate-600 mt-1">Have an invite code</p>
                         </div>
                       </label>
                     </div>
@@ -891,57 +625,84 @@ const Register: React.FC = () => {
                       </div>
 
                       <div>
-                        <label htmlFor="industry" className="block text-sm font-medium text-slate-700 mb-2">
-                          Industry <span className="text-red-500">*</span>
+                        <label htmlFor="orgEmail" className="block text-sm font-medium text-slate-700 mb-2">
+                          Institutional Email <span className="text-red-500">*</span>
                         </label>
-                        <select
-                          id="industry"
-                          name="industry"
-                          value={orgData.industry}
+                        <input
+                          id="orgEmail"
+                          name="email"
+                          type="email"
+                          required
+                          value={orgData.email}
                           onChange={handleOrgInputChange}
-                          className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white ${
-                            formErrors.industry ? 'border-red-300' : 'border-slate-300'
+                          className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                            formErrors.orgEmail ? 'border-red-300' : 'border-slate-300'
                           }`}
-                        >
-                          <option value="">Select Industry</option>
-                          <option value="financial">Financial Services</option>
-                          <option value="healthcare">Healthcare</option>
-                          <option value="technology">Technology</option>
-                          <option value="manufacturing">Manufacturing</option>
-                          <option value="retail">Retail</option>
-                          <option value="education">Education</option>
-                          <option value="government">Government</option>
-                          <option value="other">Other</option>
-                        </select>
-                        {formErrors.industry && (
-                          <p className="mt-1 text-sm text-red-600">{formErrors.industry}</p>
+                          placeholder="contact@yourcompany.com"
+                        />
+                        {formErrors.orgEmail && (
+                          <p className="mt-1 text-sm text-red-600">{formErrors.orgEmail}</p>
                         )}
                       </div>
 
-                      <div>
-                        <label htmlFor="size" className="block text-sm font-medium text-slate-700 mb-2">
-                          Organization Size <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          id="size"
-                          name="size"
-                          value={orgData.size}
-                          onChange={handleOrgInputChange}
-                          className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white ${
-                            formErrors.size ? 'border-red-300' : 'border-slate-300'
-                          }`}
-                        >
-                          <option value="">Select Size</option>
-                          <option value="1-10">1-10 employees</option>
-                          <option value="11-50">11-50 employees</option>
-                          <option value="51-200">51-200 employees</option>
-                          <option value="201-500">201-500 employees</option>
-                          <option value="501-1000">501-1000 employees</option>
-                          <option value="1000+">1000+ employees</option>
-                        </select>
-                        {formErrors.size && (
-                          <p className="mt-1 text-sm text-red-600">{formErrors.size}</p>
-                        )}
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                          <label htmlFor="industry" className="block text-sm font-medium text-slate-700 mb-2">
+                            Industry <span className="text-red-500">*</span>
+                          </label>
+                          <select
+                            id="industry"
+                            name="industry"
+                            value={orgData.industry}
+                            onChange={handleOrgInputChange}
+                            className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white ${
+                              formErrors.industry ? 'border-red-300' : 'border-slate-300'
+                            }`}
+                          >
+                            <option value="">Select Industry</option>
+                            <option value={Sector.BANKING}>Banking</option>
+                            <option value={Sector.TELECOMMUNICATIONS}>Telecommunications</option>
+                            <option value={Sector.INSURANCE}>Insurance</option>
+                            <option value={Sector.GOVERNMENT}>Government</option>
+                            <option value={Sector.HEALTHCARE}>Healthcare</option>
+                            <option value={Sector.EDUCATION}>Education</option>
+                            <option value={Sector.ENERGY}>Energy</option>
+                            <option value={Sector.MANUFACTURING}>Manufacturing</option>
+                            <option value={Sector.RETAIL}>Retail</option>
+                            <option value={Sector.LOGISTICS}>Logistics</option>
+                            <option value={Sector.TECHNOLOGY}>Technology</option>
+                            <option value={Sector.NGO}>NGO</option>
+                            <option value={Sector.OTHER}>Other</option>
+                          </select>
+                          {formErrors.industry && (
+                            <p className="mt-1 text-sm text-red-600">{formErrors.industry}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label htmlFor="size" className="block text-sm font-medium text-slate-700 mb-2">
+                            Organization Size <span className="text-red-500">*</span>
+                          </label>
+                          <select
+                            id="size"
+                            name="size"
+                            value={orgData.size}
+                            onChange={handleOrgInputChange}
+                            className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white ${
+                              formErrors.size ? 'border-red-300' : 'border-slate-300'
+                            }`}
+                          >
+                            <option value="">Select Size</option>
+                            <option value={OrganizationSize.MICRO}>1-5 employees</option>
+                            <option value={OrganizationSize.SMALL}>6-50 employees</option>
+                            <option value={OrganizationSize.MEDIUM}>51-250 employees</option>
+                            <option value={OrganizationSize.LARGE}>251-1000 employees</option>
+                            <option value={OrganizationSize.ENTERPRISE}>1000+ employees</option>
+                          </select>
+                          {formErrors.size && (
+                            <p className="mt-1 text-sm text-red-600">{formErrors.size}</p>
+                          )}
+                        </div>
                       </div>
 
                       <div>

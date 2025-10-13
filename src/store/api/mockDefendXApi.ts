@@ -162,5 +162,10 @@ export const useLazyDownloadAssessmentReportQuery = createMockLazyQuery(
     mockDefendXService.downloadAssessmentReport(id, format)
 );
 
+export const useLazyDownloadComprehensiveReportQuery = createMockLazyQuery(
+  ({ assessmentId, format = 'pdf' }: { assessmentId: string; format?: 'pdf' | 'html' | 'json' }) => 
+    mockDefendXService.downloadAssessmentReport(assessmentId, format)
+);
+
 // Legacy export for backward compatibility
 export const useGetAssessmentHistoryQuery = useGetOrganizationAssessmentsQuery;

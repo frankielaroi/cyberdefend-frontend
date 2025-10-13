@@ -20,7 +20,7 @@ export interface StartAssessmentResponse {
 export interface AssessmentHistoryParams {
   page?: number;
   limit?: number;
-  status?: 'in_progress' | 'completed' | 'cancelled';
+  status?: 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED';
   type?: AssessmentType;
   startDate?: string;
   endDate?: string;
@@ -66,35 +66,63 @@ export interface DetailedAssessmentResult extends AssessmentResultDto {
 
 export const assessmentApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
-    // Create and start new assessment
-    startAssessment: builder.mutation<ApiResponse<StartAssessmentResponse>, CreateAssessmentDto>({
+    // 1. Create new assessment
+    createAssessment: builder.mutation<Assessment & {
+      organization: {
+      id: string;
+      name: string;
+      email: string;
+      phone: string | null;
+      website: string | null;
+      description: string | null;
+      logo: string | null;
+      address: string | null;
+      city: string | null;
+      region: string | null;
+      country: string;
+      gpsAddress: string | null;
+      size: string;
+      sector: string;
+      isPublic: boolean;
+      csiScore: number | null;
+      riskTier: string | null;
+      isActive: boolean;
+      createdAt: string;
+      updatedAt: string;
+      };
+      user: {
+      id: string;
+      email: string;
+      password: string;
+      firstName: string;
+      lastName: string;
+      phone: string;
+      avatar: string | null;
+      emailVerified: boolean;
+      isActive: boolean;
+      role: string;
+      createdAt: string;
+      updatedAt: string;
+      organizationId: string;
+      };
+    }, CreateAssessmentDto>({
       query: (assessmentData) => ({
-        url: '/assessments',
-        method: 'POST',
-        body: assessmentData,
+      url: '/defendx/assessments',
+      method: 'POST',
+      body: assessmentData,
       }),
       invalidatesTags: ['Assessment'],
     }),
 
-    // Submit assessment responses and get results
-    submitAssessment: builder.mutation<ApiResponse<DetailedAssessmentResult>, AssessmentSubmitDto>({
-      query: (submitData) => ({
-        url: `/assessments/${submitData.assessmentId}/submit`,
-        method: 'POST',
-        body: {
-          responses: submitData.responses,
-        },
-      }),
-      invalidatesTags: (result, error, { assessmentId }) => [
-        { type: 'Assessment', id: assessmentId },
-        'Assessment'
-      ],
-    }),
-
-    // Complete assessment (mark as completed without submitting responses)
-    completeAssessment: builder.mutation<ApiResponse<Assessment>, string>({
+    // 2. Start existing assessment (changes status to IN_PROGRESS)
+    startAssessment: builder.mutation<{
+      id: string;
+      status: 'IN_PROGRESS';
+      startedAt: string;
+      message: string;
+    }, string>({
       query: (assessmentId) => ({
-        url: `/assessments/${assessmentId}/complete`,
+        url: `/defendx/assessments/${assessmentId}/start`,
         method: 'POST',
       }),
       invalidatesTags: (result, error, assessmentId) => [
@@ -103,22 +131,159 @@ export const assessmentApi = apiSlice.injectEndpoints({
       ],
     }),
 
-    // Get specific assessment details
-    getAssessment: builder.query<ApiResponse<Assessment>, string>({
-      query: (assessmentId) => `/assessments/${assessmentId}`,
+    // Quick start CSI assessment (create + start in one step)
+    quickStartCSIAssessment: builder.mutation<ApiResponse<Assessment>, void>({
+      query: () => ({
+        url: '/defendx/csi/start',
+        method: 'POST',
+      }),
+      invalidatesTags: ['Assessment'],
+    }),
+
+    // 4. Submit single response
+    submitSingleResponse: builder.mutation<ApiResponse<void>, {
+      assessmentId: string;
+      questionId: string;
+      answer: string | number;
+      timeSpent?: number;
+    }>({
+      query: ({ assessmentId, questionId, answer, timeSpent }) => ({
+        url: `/defendx/assessments/${assessmentId}/responses`,
+        method: 'POST',
+        body: {
+          questionId,
+          answer,
+          timeSpent,
+        },
+      }),
+      invalidatesTags: (result, error, { assessmentId }) => [
+        { type: 'Assessment', id: assessmentId },
+      ],
+    }),
+
+    // Submit bulk responses
+    submitBulkResponses: builder.mutation<ApiResponse<void>, {
+      assessmentId: string;
+      responses: Array<{
+        questionId: string;
+        answer: string | number;
+        timeSpent?: number;
+      }>;
+    }>({
+      query: ({ assessmentId, responses }) => ({
+        url: `/defendx/assessments/${assessmentId}/responses/bulk`,
+        method: 'POST',
+        body: {
+          assessmentId,
+          responses,
+        },
+      }),
+      invalidatesTags: (result, error, { assessmentId }) => [
+        { type: 'Assessment', id: assessmentId },
+        'Assessment'
+      ],
+    }),
+
+    // Legacy CSI submit (complete submission)
+    submitCSIAssessment: builder.mutation<ApiResponse<DetailedAssessmentResult>, {
+      assessmentId: string;
+      responses: Array<{
+        questionId: string;
+        answer: string | number;
+        timeSpent?: number;
+      }>;
+    }>({
+      query: ({ assessmentId, responses }) => ({
+        url: '/defendx/csi/submit',
+        method: 'POST',
+        body: {
+          assessmentId,
+          responses,
+        },
+      }),
+      invalidatesTags: (result, error, { assessmentId }) => [
+        { type: 'Assessment', id: assessmentId },
+        'Assessment'
+      ],
+    }),
+
+    // 5. Complete assessment (finalize and calculate scores)
+    completeAssessment: builder.mutation<{
+      id: string;
+      status: 'COMPLETED';
+      score: number;
+      maxScore: number;
+      riskTier: 'A' | 'B' | 'C' | 'D' | 'F';
+      completedAt: string;
+      result: {
+        id: string;
+        csiScore: number;
+        tier: 'A' | 'B' | 'C' | 'D' | 'F';
+        categoryScores: Record<string, number>;
+        recommendations: string[];
+        benchmarks: {
+          regional: { average: number; position: string };
+          sectoral: { average: number; position: string };
+          sizeCategory: { average: number; position: string };
+        };
+      };
+    }, string>({
+      query: (assessmentId) => ({
+        url: `/defendx/assessments/${assessmentId}/complete`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, assessmentId) => [
+        { type: 'Assessment', id: assessmentId },
+        'Assessment'
+      ],
+    }),
+
+    // 3. Get specific assessment with questions (complete assessment object)
+    getAssessment: builder.query<Assessment & { questions: Question[] }, string>({
+      query: (assessmentId) => `/defendx/assessments/${assessmentId}`,
       providesTags: (result, error, assessmentId) => [{ type: 'Assessment', id: assessmentId }],
     }),
 
-    // Get assessment result details
+    // 6. Get assessment report/results
+    getAssessmentReport: builder.query<ApiResponse<DetailedAssessmentResult>, {
+      assessmentId: string;
+      includeDetails?: boolean;
+      includeRecommendations?: boolean;
+      includeBenchmarks?: boolean;
+    }>({
+      query: ({ assessmentId, includeDetails = true, includeRecommendations = true, includeBenchmarks = true }) => ({
+        url: `/defendx/assessments/${assessmentId}/report`,
+        params: {
+          includeDetails,
+          includeRecommendations,
+          includeBenchmarks,
+        },
+      }),
+      providesTags: (result, error, { assessmentId }) => [{ type: 'Assessment', id: `${assessmentId}-report` }],
+    }),
+
+    // Legacy CSI result endpoint
+    getCSIResult: builder.query<ApiResponse<DetailedAssessmentResult>, {
+      assessmentId: string;
+      format?: 'json' | 'pdf' | 'html';
+    }>({
+      query: ({ assessmentId, format = 'json' }) => ({
+        url: `/defendx/csi/result/${assessmentId}`,
+        params: { format },
+      }),
+      providesTags: (result, error, { assessmentId }) => [{ type: 'Assessment', id: `${assessmentId}-csi-result` }],
+    }),
+
+    // Get assessment result details (kept for backward compatibility)
     getAssessmentResult: builder.query<ApiResponse<DetailedAssessmentResult>, string>({
-      query: (assessmentId) => `/assessments/${assessmentId}/result`,
+      query: (assessmentId) => `/defendx/assessments/${assessmentId}/result`,
       providesTags: (result, error, assessmentId) => [{ type: 'Assessment', id: `${assessmentId}-result` }],
     }),
 
     // Get organization's assessment history
     getOrganizationAssessments: builder.query<PaginatedResponse<Assessment>, AssessmentHistoryParams>({
       query: (params = {}) => ({
-        url: '/assessments',
+        url: '/defendx/assessments',
         params: {
           page: params.page || 1,
           limit: params.limit || 10,
@@ -128,20 +293,46 @@ export const assessmentApi = apiSlice.injectEndpoints({
       providesTags: ['Assessment'],
     }),
 
+    // Get assessment statistics
+    getAssessmentStats: builder.query<ApiResponse<{
+      totalAssessments: number;
+      completedAssessments: number;
+      inProgressAssessments: number;
+      averageScore: number;
+      lastCompletedScore?: number;
+      improvementTrend: number;
+    }>, { organizationId?: string }>({
+      query: ({ organizationId }) => ({
+        url: '/defendx/assessments/stats',
+        params: organizationId ? { organizationId } : undefined,
+      }),
+      providesTags: ['Assessment'],
+    }),
+
     // Get latest CSI result for organization
-    getLatestCSIResult: builder.query<ApiResponse<LatestCSIResult>, void>({
-      query: () => '/assessments/latest-result',
+    getLatestCSIResult: builder.query<LatestCSIResult, void>({
+      query: () => '/defendx/assessments/latest-result',
       providesTags: [{ type: 'Assessment', id: 'latest' }],
     }),
 
     // Download assessment report
     downloadAssessmentReport: builder.query<Blob, { assessmentId: string; format?: 'pdf' | 'html' | 'json' }>({
       query: ({ assessmentId, format = 'pdf' }) => ({
-        url: `/assessments/${assessmentId}/report`,
+        url: `/defendx/assessments/${assessmentId}/report`,
         params: { format },
-        responseHandler: (response) => response.blob(),
+        responseHandler: (response: Response) => response.blob(),
       }),
       providesTags: (result, error, { assessmentId }) => [{ type: 'Assessment', id: `${assessmentId}-report` }],
+    }),
+
+    // Download comprehensive assessment report
+    downloadComprehensiveReport: builder.query<Blob, { assessmentId: string; format?: 'pdf' | 'html' | 'json' }>({
+      query: ({ assessmentId, format = 'pdf' }) => ({
+        url: `/defendx/assessments/${assessmentId}/report/comprehensive`,
+        params: { format },
+        responseHandler: (response: Response) => response.blob(),
+      }),
+      providesTags: (result, error, { assessmentId }) => [{ type: 'Assessment', id: `${assessmentId}-comprehensive-report` }],
     }),
 
     // Get assessment dashboard data
@@ -155,7 +346,7 @@ export const assessmentApi = apiSlice.injectEndpoints({
       nextAssessmentDue?: string;
       recommendations: string[];
     }>, void>({
-      query: () => '/assessments/dashboard',
+      query: () => '/defendx/assessments/dashboard',
       providesTags: ['Assessment'],
     }),
 
@@ -166,7 +357,7 @@ export const assessmentApi = apiSlice.injectEndpoints({
       responses: AssessmentResponse[];
       currentQuestionIndex: number;
     }>, string>({
-      query: (assessmentId) => `/assessments/${assessmentId}/resume`,
+      query: (assessmentId) => `/defendx/assessments/${assessmentId}/resume`,
       providesTags: (result, error, assessmentId) => [{ type: 'Assessment', id: assessmentId }],
     }),
 
@@ -198,27 +389,35 @@ export const assessmentApi = apiSlice.injectEndpoints({
 
     // Get assessment questions (for resuming or review)
     getAssessmentQuestions: builder.query<ApiResponse<Question[]>, string>({
-      query: (assessmentId) => `/assessments/${assessmentId}/questions`,
+      query: (assessmentId) => `/defendx/assessments/${assessmentId}/questions`,
       providesTags: (result, error, assessmentId) => [{ type: 'Assessment', id: `${assessmentId}-questions` }],
     }),
 
     // Get assessment responses (for resuming or review)
     getAssessmentResponses: builder.query<ApiResponse<AssessmentResponse[]>, string>({
-      query: (assessmentId) => `/assessments/${assessmentId}/responses`,
+      query: (assessmentId) => `/defendx/assessments/${assessmentId}/responses`,
       providesTags: (result, error, assessmentId) => [{ type: 'Assessment', id: `${assessmentId}-responses` }],
     }),
   }),
 });
 
 export const {
+  useCreateAssessmentMutation,
   useStartAssessmentMutation,
-  useSubmitAssessmentMutation,
+  useQuickStartCSIAssessmentMutation,
+  useSubmitSingleResponseMutation,
+  useSubmitBulkResponsesMutation,
+  useSubmitCSIAssessmentMutation,
   useCompleteAssessmentMutation,
   useGetAssessmentQuery,
+  useGetAssessmentReportQuery,
+  useGetCSIResultQuery,
   useGetAssessmentResultQuery,
   useGetOrganizationAssessmentsQuery,
+  useGetAssessmentStatsQuery,
   useGetLatestCSIResultQuery,
   useLazyDownloadAssessmentReportQuery,
+  useLazyDownloadComprehensiveReportQuery,
   useGetDashboardQuery,
   useResumeAssessmentQuery,
   useSaveAssessmentProgressMutation,

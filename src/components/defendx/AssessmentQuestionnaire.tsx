@@ -1,29 +1,91 @@
-import { useState } from 'react';
+import { 
+  useSubmitBulkResponsesMutation,
+  useCompleteAssessmentMutation 
+} from '../../store/api/realDefendXApi';
+import { useEffect, useState } from 'react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { answerQuestion, nextQuestion, previousQuestion, clearAssessment } from '../../store/slices/defendxSlice';
-import { useSubmitAssessmentMutation } from '../../store/api/defendxApi';
-import { ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
+import { 
+  answerQuestion, 
+  nextQuestion, 
+  previousQuestion, 
+  clearAssessment, 
+  loadAssessmentWithQuestions,
+  setSubmitting 
+} from '../../store/slices/defendxSlice';
+import { 
+  useGetAssessmentQuery,
+  useSubmitSingleResponseMutation,
+  useLazyDownloadAssessmentReportQuery
+} from '../../store/api/defendxApi';
+import { ChevronLeft, ChevronRight, CheckCircle, Save, Download } from 'lucide-react';
 
 interface Props {
+  assessmentId: string;
   onComplete: () => void;
 }
 
-export default function AssessmentQuestionnaire({ onComplete }: Props) {
+export default function AssessmentQuestionnaire({ assessmentId, onComplete }: Props) {
   const dispatch = useAppDispatch();
-  const { currentAssessment, currentQuestions, responses, currentQuestionIndex } = useAppSelector(
+  const { currentAssessment, currentQuestions, responses, currentQuestionIndex, autoSaveEnabled, isSubmitting } = useAppSelector(
     (state) => state.defendx
   );
-  const [submitAssessment, { isLoading: isSubmitting }] = useSubmitAssessmentMutation();
+  console.log('AssessmentQuestionnaire render', { currentAssessment, currentQuestions, responses, currentQuestionIndex });
+  
+  // API hooks for the new flow
+  const { data: assessmentData, isLoading: isLoadingAssessment } = useGetAssessmentQuery(assessmentId);
+  const [submitSingleResponse] = useSubmitSingleResponseMutation();
+  const [submitBulkResponses] = useSubmitBulkResponsesMutation();
+  const [completeAssessment] = useCompleteAssessmentMutation();
+  const [downloadReportQuery] = useLazyDownloadAssessmentReportQuery();
+  
   const [showResults, setShowResults] = useState(false);
   const [results, setResults] = useState<any>(null);
+  const [lastSavedIndex, setLastSavedIndex] = useState(-1);
+
+  // Load assessment with questions when component mounts
+  useEffect(() => {
+    if (assessmentData && (!currentAssessment || currentQuestions.length === 0)) {
+      // assessmentData now contains the assessment and questions directly
+      dispatch(loadAssessmentWithQuestions({
+        assessment: assessmentData,
+        questions: assessmentData.questions || [],
+        existingResponses: assessmentData.responses || []
+      }));
+    }
+  }, [assessmentData, currentAssessment, currentQuestions.length, dispatch]);
 
   const currentQuestion = currentQuestions[currentQuestionIndex];
   const currentResponse = responses.find((r) => r.questionId === currentQuestion?.id);
   const progress = ((currentQuestionIndex + 1) / currentQuestions.length) * 100;
 
-  const handleAnswer = (answer: string | number) => {
+  const isLastQuestion = currentQuestionIndex === currentQuestions.length - 1;
+  const canProceed = currentResponse !== undefined;
+  const canSubmit = responses.length > 0; // Only need responses to submit
+
+  const handleAnswer = async (answer: string | number) => {
     if (currentQuestion) {
-      dispatch(answerQuestion({ questionId: currentQuestion.id, answer }));
+      const responseData = { 
+        questionId: currentQuestion.id, 
+        answer,
+        timeSpent: 30 // You can track actual time if needed
+      };
+      
+      // Update local state immediately for better UX
+      dispatch(answerQuestion(responseData));
+      
+      // Auto-save individual response if enabled
+      if (autoSaveEnabled) {
+        try {
+          await submitSingleResponse({
+            assessmentId,
+            ...responseData
+          }).unwrap();
+          setLastSavedIndex(currentQuestionIndex);
+        } catch (error) {
+          console.error('Failed to save response:', error);
+          // Could show a toast notification here
+        }
+      }
     }
   };
 
@@ -40,19 +102,58 @@ export default function AssessmentQuestionnaire({ onComplete }: Props) {
   };
 
   const handleSubmit = async () => {
-    if (!currentAssessment) return;
+    if (!currentAssessment) {
+      console.error('Missing assessment');
+      return;
+    }
 
     try {
-      const result = await submitAssessment({
+      dispatch(setSubmitting(true));
+      
+      // Step 4: Submit all responses in bulk
+      await submitBulkResponses({
         assessmentId: currentAssessment.id,
-        responses,
+        responses: responses.map(r => ({
+          questionId: r.questionId,
+          answer: r.answer,
+          timeSpent: r.timeSpent || 30
+        }))
       }).unwrap();
       
-      setResults(result.data);
+      console.log('All responses submitted successfully');
+      
+      // Step 5: Complete the assessment (this calculates scores and generates results)
+      const completionResult = await completeAssessment(currentAssessment.id).unwrap();
+      
+      console.log('Assessment completed successfully:', completionResult);
+      
+      // Display the results from the completion
+      setResults(completionResult);
       setShowResults(true);
     } catch (error: any) {
-      console.error('Failed to submit assessment:', error);
+      console.error('Failed to submit and complete assessment:', error);
       // Error will be shown by RTK Query error state
+    } finally {
+      dispatch(setSubmitting(false));
+    }
+  };
+
+  // Manual save progress function
+  const handleSaveProgress = async () => {
+    if (!currentAssessment) return;
+    
+    try {
+      await submitBulkResponses({
+        assessmentId: currentAssessment.id,
+        responses: responses.map(r => ({
+          questionId: r.questionId,
+          answer: r.answer,
+          timeSpent: r.timeSpent || 30
+        }))
+      }).unwrap();
+      setLastSavedIndex(currentQuestionIndex);
+    } catch (error) {
+      console.error('Failed to save progress:', error);
     }
   };
 
@@ -61,8 +162,50 @@ export default function AssessmentQuestionnaire({ onComplete }: Props) {
     onComplete();
   };
 
-  if (!currentQuestion) {
-    return <div>Loading...</div>;
+  const downloadReport = async (format: 'pdf' | 'html' = 'pdf') => {
+    if (!currentAssessment?.id) return;
+    
+    try {
+      // Execute the download query
+      const result = await downloadReportQuery({
+        assessmentId: currentAssessment.id,
+        format
+      }).unwrap();
+      
+      // Create a blob URL and trigger download
+      const blob = new Blob([result], { 
+        type: format === 'pdf' ? 'application/pdf' : format === 'html' ? 'text/html' : 'application/json'
+      });
+      const url = URL.createObjectURL(blob);
+      
+      // Create download link
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `csi-assessment-report-${currentAssessment.id}-${new Date().toISOString().split('T')[0]}.${format}`;
+      link.style.display = 'none';
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the blob URL
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download report:', error);
+      alert('Failed to download report. Please try again.');
+    }
+  };
+
+  if (!currentQuestion || isLoadingAssessment) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading assessment...</p>
+        </div>
+      </div>
+    );
   }
 
   if (showResults && results) {
@@ -77,34 +220,33 @@ export default function AssessmentQuestionnaire({ onComplete }: Props) {
 
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-8 mb-6 border border-blue-100">
             <div className="text-center">
-              <div className="text-7xl font-bold text-blue-600 mb-2">{results.score}</div>
+              <div className="text-7xl font-bold text-blue-600 mb-2">{results.result?.csiScore || results.score}</div>
               <div className="text-2xl font-semibold text-slate-700 mb-4">Cyber Safety Index Score</div>
               <div className={`inline-block px-6 py-2 rounded-full text-xl font-bold ${
-                results.tier === 'A' ? 'bg-green-100 text-green-700' :
-                results.tier === 'B' ? 'bg-blue-100 text-blue-700' :
-                results.tier === 'C' ? 'bg-yellow-100 text-yellow-700' :
-                results.tier === 'D' ? 'bg-orange-100 text-orange-700' :
+                (results.result?.tier || results.riskTier) === 'A' ? 'bg-green-100 text-green-700' :
+                (results.result?.tier || results.riskTier) === 'B' ? 'bg-blue-100 text-blue-700' :
+                (results.result?.tier || results.riskTier) === 'C' ? 'bg-yellow-100 text-yellow-700' :
+                (results.result?.tier || results.riskTier) === 'D' ? 'bg-orange-100 text-orange-700' :
                 'bg-red-100 text-red-700'
               }`}>
-                Tier {results.tier}
+                Tier {results.result?.tier || results.riskTier}
               </div>
             </div>
           </div>
 
-          {results.benchmark && (
+          {results.result?.benchmarks && (
             <div className="grid grid-cols-2 gap-4 mb-6">
-              <BenchmarkCard title="National Average" value={results.benchmark.national?.average} percentile={results.benchmark.national?.percentile} />
-              <BenchmarkCard title="Your Sector" value={results.benchmark.sector?.average} percentile={results.benchmark.sector?.percentile} />
-              <BenchmarkCard title="Your Region" value={results.benchmark.region?.average} percentile={results.benchmark.region?.percentile} />
-              <BenchmarkCard title="Your Size" value={results.benchmark.size?.average} percentile={results.benchmark.size?.percentile} />
+              <BenchmarkCard title="Regional Average" value={results.result.benchmarks.regional?.average} percentile={results.result.benchmarks.regional?.position} />
+              <BenchmarkCard title="Your Sector" value={results.result.benchmarks.sectoral?.average} percentile={results.result.benchmarks.sectoral?.position} />
+              <BenchmarkCard title="Your Size" value={results.result.benchmarks.sizeCategory?.average} percentile={results.result.benchmarks.sizeCategory?.position} />
             </div>
           )}
 
-          {results.recommendations && results.recommendations.length > 0 && (
+          {results.result?.recommendations && results.result.recommendations.length > 0 && (
             <div className="mb-6">
               <h2 className="text-xl font-bold text-slate-900 mb-4">Recommendations</h2>
               <div className="space-y-3">
-                {results.recommendations.map((rec: string, idx: number) => (
+                {results.result.recommendations.map((rec: string, idx: number) => (
                   <div key={idx} className="bg-slate-50 rounded-lg p-4 border border-slate-200">
                     <p className="text-slate-700">{rec}</p>
                   </div>
@@ -114,16 +256,13 @@ export default function AssessmentQuestionnaire({ onComplete }: Props) {
           )}
 
           <div className="flex gap-4">
-            {results.reportUrl && (
-              <a
-                href={results.reportUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 text-center font-medium transition-colors"
-              >
-                Download Report
-              </a>
-            )}
+            <button
+              onClick={() => downloadReport('pdf')}
+              className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium transition-colors flex items-center justify-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Download Report
+            </button>
             <button
               onClick={handleFinish}
               className="flex-1 bg-slate-600 text-white px-6 py-3 rounded-lg hover:bg-slate-700 font-medium transition-colors"
@@ -135,9 +274,6 @@ export default function AssessmentQuestionnaire({ onComplete }: Props) {
       </div>
     );
   }
-
-  const isLastQuestion = currentQuestionIndex === currentQuestions.length - 1;
-  const canProceed = currentResponse !== undefined;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -152,31 +288,43 @@ export default function AssessmentQuestionnaire({ onComplete }: Props) {
               <span className="text-sm font-medium text-slate-600">
                 Question {currentQuestionIndex + 1} of {currentQuestions.length}
               </span>
-              <span className="text-sm font-medium text-blue-600">{Math.round(progress)}% Complete</span>
+              <div className="flex items-center gap-4">
+                {autoSaveEnabled && lastSavedIndex >= 0 && (
+                  <span className="text-xs text-green-600 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    Auto-saved
+                  </span>
+                )}
+                <span className="text-sm font-medium text-blue-600">{Math.round(progress)}% Complete</span>
+              </div>
             </div>
             <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded">
-              {currentQuestion.category}
+              {typeof currentQuestion.category === 'string' 
+                ? currentQuestion.category 
+                : currentQuestion.category?.name || 'Unknown Category'}
             </span>
           </div>
 
           <h2 className="text-2xl font-bold text-slate-900 mb-6">{currentQuestion.text}</h2>
 
           <div className="space-y-3 mb-8">
-            {currentQuestion.type === 'multiple_choice' && currentQuestion.options?.map((option) => (
+            {(currentQuestion.type === 'SINGLE_CHOICE' || currentQuestion.type === 'multiple_choice') && currentQuestion.options?.map((option) => (
               <button
-                key={option}
-                onClick={() => handleAnswer(option)}
+                key={typeof option === 'string' ? option : option.id}
+                onClick={() => handleAnswer(typeof option === 'string' ? option : option.value)}
                 className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                  currentResponse?.answer === option
+                  currentResponse?.answer === (typeof option === 'string' ? option : option.value)
                     ? 'border-blue-600 bg-blue-50'
                     : 'border-slate-200 hover:border-blue-300'
                 }`}
               >
-                <span className="font-medium text-slate-900">{option}</span>
+                <span className="font-medium text-slate-900">
+                  {typeof option === 'string' ? option : option.text}
+                </span>
               </button>
             ))}
 
-            {currentQuestion.type === 'yes_no' && (
+            {(currentQuestion.type === 'YES_NO' || currentQuestion.type === 'yes_no') && (
               <>
                 <button
                   onClick={() => handleAnswer('yes')}
@@ -230,25 +378,39 @@ export default function AssessmentQuestionnaire({ onComplete }: Props) {
               Previous
             </button>
 
-            {isLastQuestion ? (
-              <button
-                onClick={handleSubmit}
-                disabled={!canProceed || isSubmitting}
-                className="flex items-center gap-2 px-6 py-3 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit Assessment'}
-                <CheckCircle className="w-5 h-5" />
-              </button>
-            ) : (
-              <button
-                onClick={handleNext}
-                disabled={!canProceed}
-                className="flex items-center gap-2 px-6 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
-              >
-                Next
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            )}
+            <div className="flex gap-3">
+              {/* Save Progress Button */}
+              {!autoSaveEnabled && (
+                <button
+                  onClick={handleSaveProgress}
+                  className="flex items-center gap-2 px-4 py-3 rounded-lg border border-blue-300 text-blue-600 hover:bg-blue-50 font-medium transition-colors"
+                  title="Save your progress"
+                >
+                  <Save className="w-4 h-4" />
+                  Save Progress
+                </button>
+              )}
+
+              {isLastQuestion ? (
+                <button
+                  onClick={handleSubmit}
+                  disabled={!canSubmit || isSubmitting}
+                  className="flex items-center gap-2 px-6 py-3 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                >
+                  {isSubmitting ? 'Submitting...' : 'Submit Assessment'}
+                  <CheckCircle className="w-5 h-5" />
+                </button>
+              ) : (
+                <button
+                  onClick={handleNext}
+                  disabled={!canProceed}
+                  className="flex items-center gap-2 px-6 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
+                >
+                  Next
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -21,6 +21,10 @@ import TemplateManager from './components/defendxplus/TemplateManager';
 import AdminDashboard from './components/admin/AdminDashboard';
 import QuestionManager from './components/admin/QuestionManager';
 import BillingDashboard from './components/billing/BillingDashboard';
+import OrganizationProfile from './components/organization/OrganizationProfile';
+import OrganizationSettings from './components/organization/OrganizationSettings';
+import UserManagement from './components/organization/UserManagement';
+import UserProfile from './components/profile/UserProfile';
 
 export const router = createBrowserRouter([
   {
@@ -136,6 +140,54 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
             <BillingDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'organization/profile',
+        element: (
+          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
+            <OrganizationProfile />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'organization/settings',
+        element: (
+          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
+            <OrganizationSettings />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'organization/users',
+        element: (
+          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
+            <UserManagement />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'profile/edit',
+        element: (
+          <ProtectedRoute>
+            <UserProfile />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'profile/settings',
+        element: (
+          <ProtectedRoute>
+            <UserProfile />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'profile/notifications',
+        element: (
+          <ProtectedRoute>
+            <UserProfile />
           </ProtectedRoute>
         ),
       },

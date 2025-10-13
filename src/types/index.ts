@@ -50,27 +50,50 @@ export interface User {
 export interface Assessment {
   id: string;
   organizationId: string;
-  status: 'in_progress' | 'completed';
+  title?: string;
+  description?: string;
+  type?: AssessmentType;
+  status: 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED';
   score?: number;
   tier?: 'A' | 'B' | 'C' | 'D' | 'F';
   startedAt: string;
   completedAt?: string;
   reportUrl?: string;
+  questions?: Question[];
+  responses?: AssessmentResponse[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Question {
   id: string;
-  category: string;
+  category: string | {
+    id: string;
+    name: string;
+    description: string;
+    weight: number;
+    order: number;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
   text: string;
-  type: 'multiple_choice' | 'yes_no' | 'rating';
-  options?: string[];
-  weight: number;
+  description?: string;
+  type: 'multiple_choice' | 'yes_no' | 'rating' | 'SINGLE_CHOICE' | 'YES_NO' | 'RATING';
+  isRequired: boolean;
+  options?: string[] | Array<{
+    id: string;
+    text: string;
+    value: string;
+  }>;
+  weight?: number;
   followUp?: string[];
 }
 
 export interface AssessmentResponse {
   questionId: string;
   answer: string | number;
+  timeSpent?: number;
 }
 
 export interface PhishingCampaign {
@@ -272,6 +295,42 @@ export interface CreateAssessmentDto {
   title: string;
   description?: string;
   type: AssessmentType;
+  organizationId: string; // Required by backend
+}
+
+// New response submission interfaces
+export interface SingleResponseDto {
+  questionId: string;
+  answer: string | number;
+  timeSpent?: number;
+}
+
+export interface BulkResponseDto {
+  assessmentId: string;
+  responses: SingleResponseDto[];
+}
+
+// Enhanced assessment result interfaces
+export interface CategoryScore {
+  category: string;
+  score: number;
+  maxScore: number;
+  percentage: number;
+  weight: number;
+}
+
+export interface Recommendation {
+  title: string;
+  description: string;
+  priority: 'high' | 'medium' | 'low';
+  category: string;
+}
+
+export interface Vulnerability {
+  title: string;
+  description: string;
+  severity: 'high' | 'medium' | 'low';
+  category: string;
 }
 
 export interface CSIDirectoryParams {
@@ -333,6 +392,7 @@ export interface SectoralStats {
 
 export interface AssessmentSubmitDto {
   assessmentId: string;
+  organizationId: string;
   responses: AssessmentResponse[];
 }
 
@@ -792,4 +852,228 @@ export interface QuestionCategoryDto {
 export interface BulkQuestionUpdateDto {
   questionIds: string[];
   updates: Partial<UpdateQuestionDto>;
+}
+
+// Organization Management Types
+export interface OrganizationSettings {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  website?: string;
+  description?: string;
+  address?: string;
+  city?: string;
+  region?: string;
+  gpsAddress?: string;
+  size: OrganizationSize;
+  sector: Sector;
+  isPublic: boolean;
+  isActive: boolean;
+  memberCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateOrganizationSettingsDto {
+  name?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  description?: string;
+  address?: string;
+  city?: string;
+  region?: string;
+  gpsAddress?: string;
+  size?: OrganizationSize;
+  sector?: Sector;
+  isPublic?: boolean;
+}
+
+export interface OrganizationMember {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  status: 'ACTIVE' | 'INACTIVE' | 'PENDING';
+  joinedAt: string;
+  lastActiveAt?: string;
+  isActive: boolean;
+}
+
+export interface InviteMemberDto {
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  message?: string;
+}
+
+export interface InviteMemberResponse {
+  success: boolean;
+  message: string;
+  invitationId: string;
+}
+
+export interface UpdateMemberRoleDto {
+  role: UserRole;
+}
+
+export interface UpdateMemberRoleResponse {
+  success: boolean;
+  message: string;
+  member: {
+    id: string;
+    role: UserRole;
+  };
+}
+
+export interface RemoveMemberDto {
+  reason?: string;
+}
+
+export interface ResendInvitationDto {
+  message?: string;
+}
+
+export interface StandardApiResponse {
+  success: boolean;
+  message: string;
+}
+
+// User Profile Management Types
+export interface UserProfile {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  avatar?: string;
+  role: UserRole;
+  emailVerified: boolean;
+  isActive: boolean;
+  organization?: {
+    id: string;
+    name: string;
+    role: UserRole;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateProfileDto {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  avatar?: string;
+}
+
+export interface ChangePasswordDto {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface UserSecurityInfo {
+  twoFactorEnabled: boolean;
+  lastPasswordChange?: string;
+  activeSessions: number;
+  lastLogin?: {
+    date: string;
+    ipAddress: string;
+    userAgent: string;
+  };
+  recentLoginAttempts: Array<{
+    date: string;
+    success: boolean;
+    ipAddress: string;
+    userAgent: string;
+  }>;
+}
+
+export interface TwoFactorAuthDto {
+  enabled: boolean;
+  phoneNumber?: string;
+  backupEmail?: string;
+}
+
+export interface TwoFactorAuthResponse {
+  success: boolean;
+  message: string;
+  backupCodes?: string[];
+}
+
+export interface TerminateSessionsResponse {
+  success: boolean;
+  message: string;
+  terminatedSessions: number;
+}
+
+export interface UserPreferences {
+  notifications: {
+    emailNotifications: boolean;
+    assessmentReminders: boolean;
+    securityAlerts: boolean;
+    weeklyReports: boolean;
+    monthlyReports: boolean;
+    phishingNotifications: boolean;
+  };
+  twoFactorAuth: {
+    enabled: boolean;
+    phoneNumber?: string;
+    backupEmail?: string;
+  };
+  account: {
+    language: string;
+    timezone: string;
+    dateFormat: string;
+    theme: 'light' | 'dark' | 'auto';
+  };
+}
+
+export interface UpdateNotificationPreferencesDto {
+  emailNotifications?: boolean;
+  assessmentReminders?: boolean;
+  securityAlerts?: boolean;
+  weeklyReports?: boolean;
+  monthlyReports?: boolean;
+  phishingNotifications?: boolean;
+}
+
+export interface UpdateAccountPreferencesDto {
+  language?: string;
+  timezone?: string;
+  dateFormat?: string;
+  theme?: 'light' | 'dark' | 'auto';
+}
+
+export interface UploadAvatarDto {
+  avatarData: string; // base64 encoded image
+  fileName: string;
+}
+
+export interface UploadAvatarResponse {
+  success: boolean;
+  message: string;
+  avatarUrl: string;
+}
+
+export interface ExportDataResponse {
+  success: boolean;
+  message: string;
+  downloadUrl: string;
+  expiresAt: string;
+}
+
+export interface DeleteAccountDto {
+  password: string;
+  reason: string;
+  confirmation: string; // Must be "DELETE MY ACCOUNT"
+}
+
+export interface DeleteAccountResponse {
+  success: boolean;
+  message: string;
+  deletionDate: string;
 }

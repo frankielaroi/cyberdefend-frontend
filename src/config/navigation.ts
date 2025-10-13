@@ -12,6 +12,9 @@ import {
   ExclamationTriangleIcon,
   BellIcon,
   EyeIcon,
+  UserIcon,
+  PencilSquareIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 
 export interface NavigationItem {
@@ -117,12 +120,6 @@ export const navigationConfig: RoleNavigation = {
           href: '/dashboard/defendx',
           icon: ShieldCheckIcon,
           description: 'Main assessment dashboard'
-        },
-        {
-          name: 'Start Assessment',
-          href: '/dashboard/defendx/assessment/start',
-          icon: AcademicCapIcon,
-          description: 'Begin new assessment'
         }
       ]
     },
@@ -169,6 +166,58 @@ export const navigationConfig: RoleNavigation = {
       href: '/csi-directory',
       icon: DocumentTextIcon,
       description: 'Security resources and directory'
+    },
+    {
+      name: 'Organization',
+      href: '/dashboard/organization',
+      icon: BuildingOfficeIcon,
+      description: 'Organization management',
+      children: [
+        {
+          name: 'Organization Profile',
+          href: '/dashboard/organization/profile',
+          icon: BuildingOfficeIcon,
+          description: 'Edit organization details'
+        },
+        // {
+        //   name: 'Organization Settings',
+        //   href: '/dashboard/organization/settings',
+        //   icon: Cog6ToothIcon,
+        //   description: 'Configure organization settings'
+        // },
+        {
+          name: 'User Management',
+          href: '/dashboard/organization/users',
+          icon: UserGroupIcon,
+          description: 'Manage organization users'
+        }
+      ]
+    },
+    {
+      name: 'Profile',
+      href: '/dashboard/profile',
+      icon: UserIcon,
+      description: 'User profile management',
+      children: [
+        {
+          name: 'Edit Profile',
+          href: '/dashboard/profile/edit',
+          icon: PencilSquareIcon,
+          description: 'Edit personal information'
+        },
+        // {
+        //   name: 'Account Settings',
+        //   href: '/dashboard/profile/settings',
+        //   icon: CogIcon,
+        //   description: 'Account preferences and security'
+        // },
+        // {
+        //   name: 'Notifications',
+        //   href: '/dashboard/profile/notifications',
+        //   icon: BellIcon,
+        //   description: 'Notification preferences'
+        // }
+      ]
     },
     {
       name: 'Billing',
@@ -250,6 +299,58 @@ export const navigationConfig: RoleNavigation = {
       description: 'Security resources and directory'
     },
     {
+      name: 'Organization',
+      href: '/dashboard/organization',
+      icon: BuildingOfficeIcon,
+      description: 'Organization management',
+      children: [
+        {
+          name: 'Organization Profile',
+          href: '/dashboard/organization/profile',
+          icon: BuildingOfficeIcon,
+          description: 'Edit organization details'
+        },
+        {
+          name: 'Organization Settings',
+          href: '/dashboard/organization/settings',
+          icon: Cog6ToothIcon,
+          description: 'Configure organization settings'
+        },
+        {
+          name: 'User Management',
+          href: '/dashboard/organization/users',
+          icon: UserGroupIcon,
+          description: 'Manage organization users'
+        }
+      ]
+    },
+    {
+      name: 'Profile',
+      href: '/dashboard/profile',
+      icon: UserIcon,
+      description: 'User profile management',
+      children: [
+        {
+          name: 'Edit Profile',
+          href: '/dashboard/profile/edit',
+          icon: PencilSquareIcon,
+          description: 'Edit personal information'
+        },
+        {
+          name: 'Account Settings',
+          href: '/dashboard/profile/settings',
+          icon: CogIcon,
+          description: 'Account preferences and security'
+        },
+        {
+          name: 'Notifications',
+          href: '/dashboard/profile/notifications',
+          icon: BellIcon,
+          description: 'Notification preferences'
+        }
+      ]
+    },
+    {
       name: 'Billing',
       href: '/dashboard/billing',
       icon: CreditCardIcon,
@@ -269,6 +370,32 @@ export const navigationConfig: RoleNavigation = {
       href: '/csi-directory',
       icon: DocumentTextIcon,
       description: 'Security resources and directory'
+    },
+    {
+      name: 'Profile',
+      href: '/dashboard/profile',
+      icon: UserIcon,
+      description: 'User profile management',
+      children: [
+        {
+          name: 'Edit Profile',
+          href: '/dashboard/profile/edit',
+          icon: PencilSquareIcon,
+          description: 'Edit personal information'
+        },
+        // {
+        //   name: 'Account Settings',
+        //   href: '/dashboard/profile/settings',
+        //   icon: CogIcon,
+        //   description: 'Account preferences and security'
+        // },
+        {
+          name: 'Notifications',
+          href: '/dashboard/profile/notifications',
+          icon: BellIcon,
+          description: 'Notification preferences'
+        }
+      ]
     }
   ]
 };

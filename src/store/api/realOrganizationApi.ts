@@ -16,7 +16,14 @@ export interface Organization {
   sector: Sector;
   size: OrganizationSize;
   description?: string;
+  logo?: string;
+  address?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  gpsAddress?: string;
   isPublic: boolean;
+  isActive: boolean;
   status: 'active' | 'suspended' | 'pending';
   memberCount: number;
   plan?: string;
@@ -237,6 +244,52 @@ export const organizationApi = apiSlice.injectEndpoints({
       query: () => '/organizations/me',
       providesTags: ['Organization', 'User'],
     }),
+
+    // NEW ENDPOINTS FOR ORGANIZATION SETTINGS & MANAGEMENT
+    
+    // Get organization settings
+    getOrganizationSettings: builder.query<Organization, string>({
+      query: (organizationId) => `/organizations/${organizationId}/settings`,
+      providesTags: (result, error, organizationId) => [{ type: 'Organization', id: organizationId }],
+    }),
+
+    // Update organization settings (Admin only)
+    updateOrganizationSettings: builder.mutation<Organization, { organizationId: string; data: Partial<Organization> }>({
+      query: ({ organizationId, data }) => ({
+        url: `/organizations/${organizationId}/settings`,
+        method: 'PATCH',
+        body: data,
+      }),
+      invalidatesTags: (result, error, { organizationId }) => [{ type: 'Organization', id: organizationId }],
+    }),
+
+    // Send member invitation
+    inviteMember: builder.mutation<{ success: boolean; message: string; invitationId: string }, { organizationId: string; data: { email: string; firstName: string; lastName: string; role: string; message?: string } }>({
+      query: ({ organizationId, data }) => ({
+        url: `/organizations/${organizationId}/members/invite`,
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: (result, error, { organizationId }) => [{ type: 'Organization', id: `${organizationId}-members` }],
+    }),
+
+    // Resend invitation
+    resendInvitation: builder.mutation<{ success: boolean; message: string }, { organizationId: string; invitationId: string; data?: { message?: string } }>({
+      query: ({ organizationId, invitationId, data = {} }) => ({
+        url: `/organizations/${organizationId}/invitations/${invitationId}/resend`,
+        method: 'POST',
+        body: data,
+      }),
+    }),
+
+    // Cancel invitation (Admin only)
+    cancelInvitation: builder.mutation<{ success: boolean; message: string }, { organizationId: string; invitationId: string }>({
+      query: ({ organizationId, invitationId }) => ({
+        url: `/organizations/${organizationId}/invitations/${invitationId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (result, error, { organizationId }) => [{ type: 'Organization', id: `${organizationId}-members` }],
+    }),
   }),
 });
 
@@ -255,4 +308,10 @@ export const {
   useGetInviteCodesQuery,
   useDeactivateInviteCodeMutation,
   useGetCurrentUserOrganizationQuery,
+  // New organization settings endpoints
+  useGetOrganizationSettingsQuery,
+  useUpdateOrganizationSettingsMutation,
+  useInviteMemberMutation,
+  useResendInvitationMutation,
+  useCancelInvitationMutation,
 } = organizationApi;

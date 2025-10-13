@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { answerQuestion, nextQuestion, previousQuestion, clearAssessment, startAssessment } from '../../store/slices/defendxSlice';
+import { useStartAssessmentMutation, useCreateAssessmentMutation } from '../../store/api/defendxApi';
+import { 
+  useSubmitBulkResponsesMutation, 
+  useCompleteAssessmentMutation,
+  useSubmitSingleResponseMutation 
+} from '../../store/api/realDefendXApi';
 import { mockQuestions } from '../../data/mockQuestions';
 import { createMockAssessment, mockAssessmentResult } from '../../data/mockAssessments';
 import { AssessmentStorage } from '../../utils/localStorage';
@@ -26,9 +32,16 @@ export default function StartAssessment({ onComplete }: Props) {
   const { currentAssessment, currentQuestions, responses, currentQuestionIndex } = useAppSelector(
     (state) => state.defendx
   );
+  const { user } = useAppSelector((state) => state.auth);
+  const [createAssessmentAPI, { isLoading: isCreatingAssessment }] = useCreateAssessmentMutation();
+  const [startAssessmentAPI, { isLoading: isStartingAssessment }] = useStartAssessmentMutation();
+  const [submitBulkResponses] = useSubmitBulkResponsesMutation();
+  const [completeAssessment] = useCompleteAssessmentMutation();
+  const [submitSingleResponse] = useSubmitSingleResponseMutation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmExit, setShowConfirmExit] = useState(false);
   const [showResumeDialog, setShowResumeDialog] = useState(false);
+  const [assessmentError, setAssessmentError] = useState<string | null>(null);
   const [previousSession, setPreviousSession] = useState<ReturnType<typeof AssessmentStorage.getSessionSummary>>(null);
 
   const currentQuestion = currentQuestions[currentQuestionIndex];
@@ -39,30 +52,70 @@ export default function StartAssessment({ onComplete }: Props) {
 
   // Check for previous session on mount
   useEffect(() => {
-    if (!currentAssessment && AssessmentStorage.isAvailable()) {
-      if (AssessmentStorage.hasPreviousSession()) {
-        const sessionSummary = AssessmentStorage.getSessionSummary();
-        setPreviousSession(sessionSummary);
-        setShowResumeDialog(true);
-      } else {
-        startNewAssessment();
+    const initializeAssessment = async () => {
+      if (!currentAssessment && AssessmentStorage.isAvailable()) {
+        if (AssessmentStorage.hasPreviousSession()) {
+          const sessionSummary = AssessmentStorage.getSessionSummary();
+          setPreviousSession(sessionSummary);
+          setShowResumeDialog(true);
+        } else {
+          await startNewAssessment();
+        }
       }
-    }
-  }, [dispatch, currentAssessment]);
+    };
+
+    initializeAssessment();
+  }, [currentAssessment]); // Removed dispatch as it's stable
 
   // Start a new assessment
-  const startNewAssessment = () => {
-    const mockAssessment = createMockAssessment();
-    const questions = mockQuestions.slice(0, 20); // Use first 20 questions for demo
-    
-    dispatch(startAssessment({
-      assessment: mockAssessment,
-      questions
-    }));
-    
-    // Save to local storage
-    AssessmentStorage.saveCurrentAssessment(mockAssessment);
-    AssessmentStorage.saveProgress(mockAssessment.id, [], 0, questions.length);
+  const startNewAssessment = async () => {
+    if (!user?.organizationId) {
+      setAssessmentError('Organization ID is required to start an assessment');
+      return;
+    }
+
+    try {
+      setAssessmentError(null);
+      
+      // Step 1: Create assessment using backend API
+      const createResult = await createAssessmentAPI({
+        title: 'Cybersecurity Assessment',
+        description: 'Comprehensive cybersecurity readiness evaluation',
+        type: 'CSI_ASSESSMENT',
+        organizationId: user.organizationId
+      }).unwrap();
+      
+      // Step 2: Start the assessment
+      const startResult = await startAssessmentAPI(createResult.id).unwrap();
+      
+      // Step 3: For now, use mock questions since backend doesn't return them
+      // TODO: Fetch questions from backend once that endpoint is available
+      const questions = mockQuestions.slice(0, 20);
+      
+      dispatch(startAssessment({
+        assessment: createResult, // Use the created assessment
+        questions
+      }));
+      
+      // Save to local storage
+      AssessmentStorage.saveCurrentAssessment(createResult);
+      AssessmentStorage.saveProgress(createResult.id, [], 0, questions.length);
+    } catch (error) {
+      console.error('Failed to start assessment with backend, falling back to mock:', error);
+      
+      // Fallback to mock data if backend is unavailable
+      const mockAssessment = createMockAssessment();
+      const questions = mockQuestions.slice(0, 20); // Use first 20 questions for demo
+      
+      dispatch(startAssessment({
+        assessment: mockAssessment,
+        questions
+      }));
+      
+      // Save to local storage
+      AssessmentStorage.saveCurrentAssessment(mockAssessment);
+      AssessmentStorage.saveProgress(mockAssessment.id, [], 0, questions.length);
+    }
   };
 
   // Resume previous assessment
@@ -94,12 +147,30 @@ export default function StartAssessment({ onComplete }: Props) {
     setShowResumeDialog(false);
   };
 
-  const handleAnswer = (answer: string | number) => {
+  const handleAnswer = async (answer: string | number) => {
     if (currentQuestion && currentAssessment) {
-      const response = { questionId: currentQuestion.id, answer };
+      const response = { 
+        questionId: currentQuestion.id, 
+        answer,
+        timeSpent: 30 // You can track actual time if needed
+      };
+      
+      // Update local state immediately for better UX
       dispatch(answerQuestion(response));
       
-      // Save progress to local storage
+      // Save to backend API (auto-save individual response)
+      try {
+        await submitSingleResponse({
+          assessmentId: currentAssessment.id,
+          ...response
+        }).unwrap();
+        
+        console.log('Response saved to backend successfully');
+      } catch (error) {
+        console.error('Failed to save response to backend, saving locally:', error);
+      }
+      
+      // Also save progress to local storage as backup
       const updatedResponses = [...responses];
       const existingIndex = updatedResponses.findIndex(r => r.questionId === currentQuestion.id);
       if (existingIndex >= 0) {
@@ -155,10 +226,35 @@ export default function StartAssessment({ onComplete }: Props) {
     setIsSubmitting(true);
     
     try {
-      // Simulate API delay
-      await mockAssessmentResult.simulateApiDelay();
+      // Step 1: Submit all responses in bulk to backend
+      await submitBulkResponses({
+        assessmentId: currentAssessment.id,
+        responses: responses.map(r => ({
+          questionId: r.questionId,
+          answer: r.answer,
+          timeSpent: r.timeSpent || 30
+        }))
+      }).unwrap();
       
-      // Calculate score using mock utility
+      console.log('All responses submitted successfully');
+      
+      // Step 2: Complete the assessment (this calculates scores and generates results)
+      const completionResult = await completeAssessment(currentAssessment.id).unwrap();
+      
+      console.log('Assessment completed successfully:', completionResult);
+      
+      // Clear local storage since assessment is now complete
+      AssessmentStorage.clearCurrentSession();
+      
+      // Navigate to results or call onComplete with backend result
+      onComplete(completionResult);
+    } catch (error: any) {
+      console.error('Failed to submit and complete assessment:', error);
+      
+      // Fallback to mock result if backend fails
+      console.log('Falling back to mock assessment result...');
+      
+      // Calculate score using mock utility as fallback
       const totalQuestions = currentQuestions.length;
       const score = mockAssessmentResult.calculateScore(responses.length, totalQuestions);
       const tier = mockAssessmentResult.getTier(score);
@@ -172,16 +268,12 @@ export default function StartAssessment({ onComplete }: Props) {
         questionsCount: totalQuestions
       };
       
-      // Save result to local storage
+      // Save fallback result to local storage
       AssessmentStorage.saveResult(mockResult);
-      
-      // Clear current session since it's completed
       AssessmentStorage.clearCurrentSession();
       
-      // Navigate to results page or call onComplete
+      // Use fallback result
       onComplete(mockResult);
-    } catch (error) {
-      console.error('Failed to submit assessment:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -205,17 +297,61 @@ export default function StartAssessment({ onComplete }: Props) {
 
   // Auto-save progress periodically
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (responses.length > 0) {
-        // Auto-save logic would go here
-        console.log('Auto-saving progress...');
+    const interval = setInterval(async () => {
+      if (responses.length > 0 && currentAssessment) {
+        try {
+          // Auto-save to backend using bulk responses
+          await submitBulkResponses({
+            assessmentId: currentAssessment.id,
+            responses: responses.map(r => ({
+              questionId: r.questionId,
+              answer: r.answer,
+              timeSpent: r.timeSpent || 30
+            }))
+          }).unwrap();
+          
+          console.log('Auto-saved progress to backend');
+        } catch (error) {
+          console.error('Auto-save to backend failed, using local storage:', error);
+          
+          // Fallback to local storage auto-save
+          AssessmentStorage.saveProgress(
+            currentAssessment.id,
+            responses,
+            currentQuestionIndex,
+            currentQuestions.length
+          );
+        }
       }
     }, 30000); // Auto-save every 30 seconds
 
     return () => clearInterval(interval);
-  }, [responses]);
+  }, [responses, currentAssessment, currentQuestionIndex, currentQuestions.length, submitBulkResponses]);
 
-  if (!currentQuestion) {
+  // Show error state if assessment failed to load
+  if (assessmentError) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Assessment Loading Failed</h2>
+          <p className="text-slate-600 mb-4">{assessmentError}</p>
+          <button
+            onClick={() => {
+              setAssessmentError(null);
+              startNewAssessment();
+            }}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading while starting assessment or if no current question
+  if (isCreatingAssessment || isStartingAssessment || !currentQuestion) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
@@ -270,25 +406,27 @@ export default function StartAssessment({ onComplete }: Props) {
           {/* Question category badge */}
           <div className="mb-6">
             <span className="inline-block bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
-              {currentQuestion.category}
+              {typeof currentQuestion?.category === 'string' 
+                ? currentQuestion.category 
+                : currentQuestion?.category?.name || 'General'}
             </span>
           </div>
 
           {/* Question text */}
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-slate-900 mb-4 leading-tight">
-              {currentQuestion.text}
+              {currentQuestion?.text || 'Loading question...'}
             </h2>
-            {currentQuestion.followUp && currentQuestion.followUp.length > 0 && (
+            {currentQuestion?.followUp && currentQuestion.followUp.length > 0 && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-start gap-3">
                   <HelpCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="text-blue-800 font-medium mb-2">Additional Context:</p>
                     <ul className="text-blue-700 text-sm space-y-1">
-                      {currentQuestion.followUp.map((item, index) => (
+                      {currentQuestion?.followUp?.map((item, index) => (
                         <li key={index}>• {item}</li>
-                      ))}
+                      )) || []}
                     </ul>
                   </div>
                 </div>
@@ -298,34 +436,39 @@ export default function StartAssessment({ onComplete }: Props) {
 
           {/* Answer options */}
           <div className="mb-8">
-            {currentQuestion.type === 'multiple_choice' && currentQuestion.options ? (
+            {currentQuestion?.type === 'multiple_choice' && currentQuestion?.options ? (
               <div className="space-y-3">
-                {currentQuestion.options.map((option, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleAnswer(option)}
-                    className={`w-full text-left p-4 border-2 rounded-lg transition-all ${
-                      currentResponse?.answer === option
-                        ? 'border-blue-500 bg-blue-50 text-blue-900'
-                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-4 h-4 rounded-full border-2 ${
-                        currentResponse?.answer === option
-                          ? 'border-blue-500 bg-blue-500'
-                          : 'border-slate-300'
-                      }`}>
-                        {currentResponse?.answer === option && (
-                          <CheckCircle className="w-4 h-4 text-white" />
-                        )}
+                {currentQuestion.options.map((option, index) => {
+                  const optionValue = typeof option === 'string' ? option : option.value;
+                  const optionText = typeof option === 'string' ? option : option.text;
+                  
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => handleAnswer(optionValue)}
+                      className={`w-full text-left p-4 border-2 rounded-lg transition-all ${
+                        currentResponse?.answer === optionValue
+                          ? 'border-blue-500 bg-blue-50 text-blue-900'
+                          : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-4 h-4 rounded-full border-2 ${
+                          currentResponse?.answer === optionValue
+                            ? 'border-blue-500 bg-blue-500'
+                            : 'border-slate-300'
+                        }`}>
+                          {currentResponse?.answer === optionValue && (
+                            <CheckCircle className="w-4 h-4 text-white" />
+                          )}
+                        </div>
+                        <span className="font-medium">{optionText}</span>
                       </div>
-                      <span className="font-medium">{option}</span>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
-            ) : currentQuestion.type === 'yes_no' ? (
+            ) : currentQuestion?.type === 'yes_no' ? (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {['Yes', 'Partial', 'No', 'N/A'].map((option) => (
                   <button
@@ -352,7 +495,7 @@ export default function StartAssessment({ onComplete }: Props) {
                   </button>
                 ))}
               </div>
-            ) : currentQuestion.type === 'rating' ? (
+            ) : currentQuestion?.type === 'rating' ? (
               <div className="space-y-4">
                 <p className="text-slate-600 mb-4">Rate from 1 (Poor) to 5 (Excellent)</p>
                 <div className="flex gap-3 justify-center">
@@ -392,10 +535,10 @@ export default function StartAssessment({ onComplete }: Props) {
             <div className="flex items-center gap-3">
               <button
                 className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-800 transition-colors"
-                title="Progress is automatically saved to your browser's local storage"
+                title="Progress is automatically saved to the backend and locally as backup"
               >
                 <Save className="w-4 h-4" />
-                Saved Locally
+                Auto-Saved
               </button>
 
               {isLastQuestion ? (

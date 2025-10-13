@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useGetAssessmentResultQuery } from '../../store/api/defendxApi';
+import { 
+  useGetAssessmentResultQuery,
+  useLazyDownloadAssessmentReportQuery,
+  useLazyDownloadComprehensiveReportQuery
+} from '../../store/api/defendxApi';
 import { useGetPlansQuery } from '../../store/api/billingApi';
 import { 
   Download, 
-  Share2, 
   TrendingUp, 
   Shield, 
   AlertTriangle, 
@@ -21,9 +24,16 @@ import {
 
 export default function AssessmentResult() {
   const { id } = useParams<{ id: string }>();
-  const { data: result, isLoading, error } = useGetAssessmentResultQuery(id!);
+  const { data: response, isLoading, error } = useGetAssessmentResultQuery(id!);
   const { data: plans = [] } = useGetPlansQuery();
   const [activeTab, setActiveTab] = useState<'overview' | 'breakdown' | 'benchmark' | 'recommendations'>('overview');
+
+  // Download hooks for reports
+  const [downloadStandardReport] = useLazyDownloadAssessmentReportQuery();
+  const [downloadComprehensiveReport] = useLazyDownloadComprehensiveReportQuery();
+
+  // Extract the actual result data from the API response
+  const result = response?.data;
 
   if (isLoading) {
     return (
@@ -58,6 +68,8 @@ export default function AssessmentResult() {
   };
 
   const getRecommendedPlans = () => {
+    if (!result?.score) return [];
+    
     if (result.score < 60) {
       return plans.filter((plan: any) => plan.name.includes('Premium') || plan.name.includes('Enterprise')).slice(0, 2);
     } else if (result.score < 80) {
@@ -66,17 +78,48 @@ export default function AssessmentResult() {
     return plans.filter((plan: any) => plan.name.includes('Basic') || plan.name.includes('Starter')).slice(0, 2);
   };
 
-  const downloadReport = async (format: 'pdf' | 'html' = 'pdf') => {
+  const downloadReport = async (format: 'pdf' | 'html' = 'pdf', comprehensive = false) => {
+    if (!id) return;
+    
     try {
-      // Implementation would use the download API endpoint
+      // Use the appropriate RTK Query hook
+      const downloadQuery = comprehensive ? downloadComprehensiveReport : downloadStandardReport;
+      
+      // Execute the download query
+      const result = await downloadQuery({
+        assessmentId: id,
+        format
+      }).unwrap();
+      
+      // Create a blob URL and trigger download
+      const blob = new Blob([result], { 
+        type: format === 'pdf' ? 'application/pdf' : format === 'html' ? 'text/html' : 'application/json'
+      });
+      const url = URL.createObjectURL(blob);
+      
+      // Create download link
       const link = document.createElement('a');
-      link.href = `/api/defendx/csi/result/${id}?format=${format}`;
-      link.download = `csi-report-${result.score}-${format}`;
+      link.href = url;
+      const reportType = comprehensive ? 'comprehensive' : 'standard';
+      link.download = `csi-${reportType}-report-${id}-${new Date().toISOString().split('T')[0]}.${format}`;
+      link.style.display = 'none';
+      
+      // Trigger download
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the blob URL
+      URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Failed to download report:', error);
+      alert('Failed to download report. Please try again.');
     }
   };
+
+  if (!result) {
+    return null; // Return early if no result data
+  }
 
   const riskLevel = getRiskLevel(result.score);
   const RiskIcon = riskLevel.icon;
@@ -90,23 +133,23 @@ export default function AssessmentResult() {
             <div>
               <h1 className="text-3xl font-bold text-slate-900">Assessment Results</h1>
               <p className="text-slate-600 mt-1">
-                Completed on {new Date((result as any).completedAt || Date.now()).toLocaleDateString()}
+                Completed on {new Date(result.completedAt || Date.now()).toLocaleDateString()}
               </p>
             </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={() => downloadReport('pdf')}
+                onClick={() => downloadReport('pdf', false)}
                 className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
               >
                 <Download className="w-4 h-4" />
-                Download PDF
+                Standard Report
               </button>
               <button
-                onClick={() => downloadReport('html')}
-                className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                onClick={() => downloadReport('pdf', true)}
+                className="flex items-center gap-2 px-4 py-2 border border-blue-300 text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
               >
-                <Share2 className="w-4 h-4" />
-                Share Report
+                <Download className="w-4 h-4" />
+                Comprehensive Report
               </button>
               <Link
                 to="/defendx"
@@ -193,11 +236,11 @@ export default function AssessmentResult() {
               </p>
             </div>
 
-            {(result as any).categoryBreakdown && (
+            {result.categoryBreakdown && (
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                 <h3 className="text-lg font-bold text-slate-900 mb-4">Category Scores</h3>
                 <div className="space-y-3">
-                  {Object.entries((result as any).categoryBreakdown).slice(0, 4).map(([category, score]) => (
+                  {Object.entries(result.categoryBreakdown).slice(0, 4).map(([category, score]) => (
                     <div key={category} className="flex items-center justify-between">
                       <span className="text-sm text-slate-600 capitalize">{category.replace('_', ' ')}</span>
                       <div className="flex items-center gap-2">
@@ -250,11 +293,11 @@ export default function AssessmentResult() {
             {activeTab === 'overview' && (
               <div className="space-y-6">
                 {/* Top 5 Vulnerabilities */}
-                {(result as any).vulnerabilities && (result as any).vulnerabilities.length > 0 && (
+                {result.vulnerabilities && result.vulnerabilities.length > 0 && (
                   <div>
                     <h3 className="text-xl font-bold text-slate-900 mb-4">Top Vulnerabilities</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {(result as any).vulnerabilities.slice(0, 5).map((vulnerability: any, index: number) => (
+                      {result.vulnerabilities.slice(0, 5).map((vulnerability: any, index: number) => (
                         <div key={index} className="border border-red-200 bg-red-50 rounded-lg p-4">
                           <div className="flex items-start gap-3">
                             <div className="bg-red-100 text-red-600 rounded-full p-2">
@@ -307,11 +350,11 @@ export default function AssessmentResult() {
               </div>
             )}
 
-            {activeTab === 'breakdown' && (result as any).categoryBreakdown && (
+            {activeTab === 'breakdown' && result.categoryBreakdown && (
               <div>
                 <h3 className="text-xl font-bold text-slate-900 mb-6">Category Performance</h3>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {Object.entries((result as any).categoryBreakdown).map(([category, score]) => (
+                  {Object.entries(result.categoryBreakdown).map(([category, score]) => (
                     <div key={category} className="border border-slate-200 rounded-lg p-6">
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="text-lg font-semibold text-slate-900 capitalize">
@@ -344,7 +387,7 @@ export default function AssessmentResult() {
               <div>
                 <h3 className="text-xl font-bold text-slate-900 mb-6">Benchmark Comparison</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {(result as any).benchmarks && Object.entries((result as any).benchmarks).map(([key, data]) => (
+                  {result.benchmark && Object.entries(result.benchmark).map(([key, data]) => (
                     <div key={key} className="bg-slate-50 rounded-lg p-6 text-center">
                       <div className="flex items-center justify-center gap-2 mb-3">
                         {key === 'national' && <MapPin className="w-5 h-5 text-slate-600" />}

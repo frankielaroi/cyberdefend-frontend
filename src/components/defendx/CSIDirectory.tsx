@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useGetCSIDirectoryQuery, useGetCSIHeatmapQuery, useGetCSIInsightsQuery } from '../../store/api/csiDirectoryApi';
-import { Search, MapPin, Building2, Eye, Shield, TrendingUp, BarChart3, Table, Grid3X3 } from 'lucide-react';
+import { Search, MapPin, Building2, Eye, Shield, TrendingUp, BarChart3, Table, Grid3X3,Home } from 'lucide-react';
 import type { Sector, OrganizationSize } from '../../types';
+import { useNavigate } from 'react-router-dom';
 
 export default function CSIDirectory() {
   const [filters, setFilters] = useState<{
@@ -29,6 +30,7 @@ export default function CSIDirectory() {
     limit: 20,
   };
 
+  const navigate = useNavigate()
   const { data: directoryData, isLoading } = useGetCSIDirectoryQuery(apiFilters);
   const { data: heatmapData } = useGetCSIHeatmapQuery();
   const { data: insightsData } = useGetCSIInsightsQuery();
@@ -70,6 +72,7 @@ export default function CSIDirectory() {
 
   return (
     <div className="space-y-6">
+      <Home className="w-5 h-5 text-slate-600" /> 
       {/* Header Section */}
       <div className="text-center">
         <div className="flex justify-center mb-4">

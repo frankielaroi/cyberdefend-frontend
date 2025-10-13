@@ -14,6 +14,12 @@ export {
   useGetInviteCodesQuery,
   useDeactivateInviteCodeMutation,
   useGetCurrentUserOrganizationQuery,
+  // New organization settings endpoints
+  useGetOrganizationSettingsQuery,
+  useUpdateOrganizationSettingsMutation,
+  useInviteMemberMutation,
+  useResendInvitationMutation,
+  useCancelInvitationMutation,
   // Type exports
   type Organization,
   type OrganizationMember,

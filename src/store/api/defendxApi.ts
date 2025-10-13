@@ -1,14 +1,22 @@
 // Real DefendX API connected to backend
 export {
   // Assessment hooks from real API
+  useCreateAssessmentMutation,
   useStartAssessmentMutation,
-  useSubmitAssessmentMutation,
+  useQuickStartCSIAssessmentMutation,
+  useSubmitSingleResponseMutation,
+  useSubmitBulkResponsesMutation,
+  useSubmitCSIAssessmentMutation,
   useCompleteAssessmentMutation,
   useGetAssessmentQuery,
+  useGetAssessmentReportQuery,
+  useGetCSIResultQuery,
   useGetAssessmentResultQuery,
   useGetOrganizationAssessmentsQuery,
+  useGetAssessmentStatsQuery,
   useGetLatestCSIResultQuery,
   useLazyDownloadAssessmentReportQuery,
+  useLazyDownloadComprehensiveReportQuery,
   useGetDashboardQuery,
   useResumeAssessmentQuery,
   useSaveAssessmentProgressMutation,
@@ -45,5 +53,8 @@ export {
 
 // Legacy exports for backward compatibility
 export { 
-  useGetOrganizationAssessmentsQuery as useGetAssessmentHistoryQuery 
+  useGetOrganizationAssessmentsQuery as useGetAssessmentHistoryQuery,
+  // Add legacy support for old startAssessment that combined create+start
+  useQuickStartCSIAssessmentMutation as useStartAssessmentMutation_Legacy,
+  useSubmitCSIAssessmentMutation as useSubmitAssessmentMutation_Legacy
 } from './realDefendXApi';
