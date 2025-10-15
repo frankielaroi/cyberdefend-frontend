@@ -4,6 +4,7 @@ import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import ForgotPassword from './components/auth/ForgotPassword';
 import ResetPassword from './components/auth/ResetPassword';
+import VerifyEmail from './components/auth/VerifyEmail';
 import DashboardLayout from './components/layout/DashboardLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleBasedDashboard from './components/dashboard/RoleBasedDashboard';
@@ -12,6 +13,7 @@ import AssessmentDashboard from './components/defendx/AssessmentDashboard';
 import StartAssessment from './components/defendx/StartAssessment';
 import AssessmentResults from './components/defendx/AssessmentResults';
 import CSIDirectory from './components/defendx/CSIDirectory';
+import AnonymousAssessment from './components/defendx/AnonymousAssessment';
 import PhishingDashboard from './components/defendxplus/PhishingDashboard';
 import MonitoringDashboard from './components/defendxplus/MonitoringDashboard';
 import ScanReports from './components/defendxplus/ScanReports';
@@ -48,8 +50,16 @@ export const router = createBrowserRouter([
     element: <ResetPassword />,
   },
   {
+    path: '/verify-email',
+    element: <VerifyEmail />,
+  },
+  {
     path: '/csi-directory',
     element: <CSIDirectory />,
+  },
+  {
+    path: '/assessment/anonymous',
+    element: <AnonymousAssessment />,
   },
   {
     path: '/dashboard',

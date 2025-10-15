@@ -115,7 +115,7 @@ const LandingPage: React.FC = () => {
               
               <div className="flex flex-col sm:flex-row justify-center gap-6 mb-16">
                 <Link 
-                  to="/register" 
+                  to="/assessment/anonymous" 
                   className="group relative bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-8 py-4 rounded-xl font-medium text-lg transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-2xl overflow-hidden"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />

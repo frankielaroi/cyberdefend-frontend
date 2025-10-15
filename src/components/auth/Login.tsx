@@ -1,18 +1,27 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useLoginMutation } from '../../store/api/authApi';
+import { useTransferAnonymousAssessmentMutation } from '../../store/api/realDefendXApi';
 import { useAppDispatch } from '../../store/hooks';
 import { setCredentials } from '../../store/slices/authSlice';
+import { clearAnonymousSession } from '../../utils/anonymousSession';
 import { Shield, Lock, Mail, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const [login, { isLoading }] = useLoginMutation();
+  const [transferAssessment, { isLoading: isTransferring }] = useTransferAnonymousAssessmentMutation();
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+
+  // Get anonymous assessment data from navigation state
+  const fromAnonymousAssessment = location.state?.fromAnonymousAssessment;
+  const anonymousSessionId = location.state?.sessionId;
+  const anonymousAssessmentId = location.state?.assessmentId;
 
   const [formData, setFormData] = useState({
     email: '',
@@ -37,7 +46,28 @@ export default function Login() {
     try {
       const result = await login(formData).unwrap();
       dispatch(setCredentials(result));
-      navigate('/dashboard');
+
+      // If coming from anonymous assessment, transfer it to the authenticated user
+      if (fromAnonymousAssessment && anonymousSessionId && result.user?.id) {
+        try {
+          await transferAssessment({
+            sessionId: anonymousSessionId,
+            userId: result.user.id,
+          }).unwrap();
+          
+          // Clear anonymous session data
+          clearAnonymousSession();
+          
+          // Navigate to assessment results
+          navigate(`/defendx/results/${anonymousAssessmentId}`);
+        } catch (transferErr: any) {
+          console.error('Failed to transfer assessment:', transferErr);
+          // Still navigate to dashboard even if transfer fails
+          navigate('/dashboard');
+        }
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       // Handle RTK Query error format
       const errorMessage = err?.data?.message || err?.message || 'Access denied. Please verify your security credentials.';
@@ -182,21 +212,21 @@ export default function Login() {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || isTransferring}
                 className="group relative w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-xl font-medium text-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg hover:shadow-blue-500/25 overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity animate-pulse" />
                 
                 <span className="relative z-10 flex items-center justify-center gap-3">
-                  {isLoading ? (
+                  {isLoading || isTransferring ? (
                     <>
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Authenticating...
+                      {isTransferring ? 'Transferring Assessment...' : 'Authenticating...'}
                     </>
                   ) : (
                     <>
-                      Sign In
+                      {fromAnonymousAssessment ? 'Sign In & View Results' : 'Sign In'}
                     </>
                   )}
                 </span>

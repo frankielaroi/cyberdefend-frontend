@@ -3,7 +3,6 @@ import type {
   Assessment,
   Question,
   AssessmentResponse,
-  AssessmentSubmitDto,
   AssessmentResultDto,
   CreateAssessmentDto,
   AssessmentType,
@@ -125,7 +124,7 @@ export const assessmentApi = apiSlice.injectEndpoints({
         url: `/defendx/assessments/${assessmentId}/start`,
         method: 'POST',
       }),
-      invalidatesTags: (result, error, assessmentId) => [
+      invalidatesTags: (_result, _error, assessmentId) => [
         { type: 'Assessment', id: assessmentId },
         'Assessment'
       ],
@@ -156,7 +155,7 @@ export const assessmentApi = apiSlice.injectEndpoints({
           timeSpent,
         },
       }),
-      invalidatesTags: (result, error, { assessmentId }) => [
+      invalidatesTags: (_result, _error, { assessmentId }) => [
         { type: 'Assessment', id: assessmentId },
       ],
     }),
@@ -178,12 +177,18 @@ export const assessmentApi = apiSlice.injectEndpoints({
           responses,
         },
       }),
-      invalidatesTags: (result, error, { assessmentId }) => [
+      invalidatesTags: (_result, _error, { assessmentId }) => [
         { type: 'Assessment', id: assessmentId },
         'Assessment'
       ],
     }),
-
+ 
+    getAnonymousQuestions: builder.query<ApiResponse<Question[]>, void>({
+      query: () => ({
+        url: '/defendx/assessments/questions',
+      }),
+      providesTags: ['Assessment'],
+    }),
     // Legacy CSI submit (complete submission)
     submitCSIAssessment: builder.mutation<ApiResponse<DetailedAssessmentResult>, {
       assessmentId: string;
@@ -201,7 +206,7 @@ export const assessmentApi = apiSlice.injectEndpoints({
           responses,
         },
       }),
-      invalidatesTags: (result, error, { assessmentId }) => [
+      invalidatesTags: (_result, _error, { assessmentId }) => [
         { type: 'Assessment', id: assessmentId },
         'Assessment'
       ],
@@ -232,7 +237,7 @@ export const assessmentApi = apiSlice.injectEndpoints({
         url: `/defendx/assessments/${assessmentId}/complete`,
         method: 'POST',
       }),
-      invalidatesTags: (result, error, assessmentId) => [
+      invalidatesTags: (_result, _error, assessmentId) => [
         { type: 'Assessment', id: assessmentId },
         'Assessment'
       ],
@@ -241,7 +246,7 @@ export const assessmentApi = apiSlice.injectEndpoints({
     // 3. Get specific assessment with questions (complete assessment object)
     getAssessment: builder.query<Assessment & { questions: Question[] }, string>({
       query: (assessmentId) => `/defendx/assessments/${assessmentId}`,
-      providesTags: (result, error, assessmentId) => [{ type: 'Assessment', id: assessmentId }],
+      providesTags: (_result, _error, assessmentId) => [{ type: 'Assessment', id: assessmentId }],
     }),
 
     // 6. Get assessment report/results
@@ -259,7 +264,7 @@ export const assessmentApi = apiSlice.injectEndpoints({
           includeBenchmarks,
         },
       }),
-      providesTags: (result, error, { assessmentId }) => [{ type: 'Assessment', id: `${assessmentId}-report` }],
+      providesTags: (_result, _error, { assessmentId }) => [{ type: 'Assessment', id: `${assessmentId}-report` }],
     }),
 
     // Legacy CSI result endpoint
@@ -271,13 +276,13 @@ export const assessmentApi = apiSlice.injectEndpoints({
         url: `/defendx/csi/result/${assessmentId}`,
         params: { format },
       }),
-      providesTags: (result, error, { assessmentId }) => [{ type: 'Assessment', id: `${assessmentId}-csi-result` }],
+      providesTags: (_result, _error, { assessmentId }) => [{ type: 'Assessment', id: `${assessmentId}-csi-result` }],
     }),
 
     // Get assessment result details (kept for backward compatibility)
     getAssessmentResult: builder.query<ApiResponse<DetailedAssessmentResult>, string>({
       query: (assessmentId) => `/defendx/assessments/${assessmentId}/result`,
-      providesTags: (result, error, assessmentId) => [{ type: 'Assessment', id: `${assessmentId}-result` }],
+      providesTags: (_result, _error, assessmentId) => [{ type: 'Assessment', id: `${assessmentId}-result` }],
     }),
 
     // Get organization's assessment history
@@ -322,7 +327,7 @@ export const assessmentApi = apiSlice.injectEndpoints({
         params: { format },
         responseHandler: (response: Response) => response.blob(),
       }),
-      providesTags: (result, error, { assessmentId }) => [{ type: 'Assessment', id: `${assessmentId}-report` }],
+      providesTags: (_result, _error, { assessmentId }) => [{ type: 'Assessment', id: `${assessmentId}-report` }],
     }),
 
     // Download comprehensive assessment report
@@ -332,7 +337,7 @@ export const assessmentApi = apiSlice.injectEndpoints({
         params: { format },
         responseHandler: (response: Response) => response.blob(),
       }),
-      providesTags: (result, error, { assessmentId }) => [{ type: 'Assessment', id: `${assessmentId}-comprehensive-report` }],
+      providesTags: (_result, _error, { assessmentId }) => [{ type: 'Assessment', id: `${assessmentId}-comprehensive-report` }],
     }),
 
     // Get assessment dashboard data
@@ -358,7 +363,7 @@ export const assessmentApi = apiSlice.injectEndpoints({
       currentQuestionIndex: number;
     }>, string>({
       query: (assessmentId) => `/defendx/assessments/${assessmentId}/resume`,
-      providesTags: (result, error, assessmentId) => [{ type: 'Assessment', id: assessmentId }],
+      providesTags: (_result, _error, assessmentId) => [{ type: 'Assessment', id: assessmentId }],
     }),
 
     // Save assessment progress (auto-save)
@@ -372,7 +377,7 @@ export const assessmentApi = apiSlice.injectEndpoints({
         method: 'PUT',
         body: { responses, currentQuestionIndex },
       }),
-      invalidatesTags: (result, error, { assessmentId }) => [{ type: 'Assessment', id: assessmentId }],
+      invalidatesTags: (_result, _error, { assessmentId }) => [{ type: 'Assessment', id: assessmentId }],
     }),
 
     // Cancel assessment
@@ -381,7 +386,7 @@ export const assessmentApi = apiSlice.injectEndpoints({
         url: `/assessments/${assessmentId}/cancel`,
         method: 'POST',
       }),
-      invalidatesTags: (result, error, assessmentId) => [
+      invalidatesTags: (_result, _error, assessmentId) => [
         { type: 'Assessment', id: assessmentId },
         'Assessment'
       ],
@@ -390,13 +395,115 @@ export const assessmentApi = apiSlice.injectEndpoints({
     // Get assessment questions (for resuming or review)
     getAssessmentQuestions: builder.query<ApiResponse<Question[]>, string>({
       query: (assessmentId) => `/defendx/assessments/${assessmentId}/questions`,
-      providesTags: (result, error, assessmentId) => [{ type: 'Assessment', id: `${assessmentId}-questions` }],
+      providesTags: (_result, _error, assessmentId) => [{ type: 'Assessment', id: `${assessmentId}-questions` }],
     }),
 
     // Get assessment responses (for resuming or review)
     getAssessmentResponses: builder.query<ApiResponse<AssessmentResponse[]>, string>({
       query: (assessmentId) => `/defendx/assessments/${assessmentId}/responses`,
-      providesTags: (result, error, assessmentId) => [{ type: 'Assessment', id: `${assessmentId}-responses` }],
+      providesTags: (_result, _error, assessmentId) => [{ type: 'Assessment', id: `${assessmentId}-responses` }],
+    }),
+
+
+    // ============ ANONYMOUS ASSESSMENT ENDPOINTS ============
+    
+    // Create anonymous assessment (public endpoint - no auth required)
+    createAnonymousAssessment: builder.mutation<{
+      id: string;
+      sessionId: string;
+      status: 'DRAFT';
+      createdAt: string;
+      isAnonymous: boolean;
+    }, { sessionId: string }>({
+      query: ({ sessionId }) => ({
+        url: '/defendx/assessments/anonymous',
+        method: 'POST',
+        body: { sessionId },
+      }),
+      invalidatesTags: ['Assessment'],
+    }),
+
+    // Submit anonymous responses (bulk - public endpoint)
+    submitAnonymousResponses: builder.mutation<ApiResponse<void>, {
+      assessmentId: string;
+      sessionId: string;
+      responses: Array<{
+        questionId: string;
+        answer: string | number;
+        timeSpent?: number;
+      }>;
+    }>({
+      query: ({ assessmentId, sessionId, responses }) => ({
+        url: `/defendx/assessments/${assessmentId}/responses/bulk/anonymous`,
+        method: 'POST',
+        body: {
+          sessionId,
+          responses: responses.map(response => ({
+            ...response,
+            sessionId, // Add sessionId to each response object
+          })),
+        },
+      }),
+      invalidatesTags: (_result, _error, { assessmentId }) => [
+        { type: 'Assessment', id: assessmentId },
+      ],
+    }),
+
+    // Complete anonymous assessment (public endpoint)
+    completeAnonymousAssessment: builder.mutation<{
+      assessmentId: string;
+      score: number;
+      tier: 'A' | 'B' | 'C' | 'D' | 'F';
+      completedAt: string;
+      responses: number;
+      questionsCount: number;
+      isAnonymous: boolean;
+    }, {
+      assessmentId: string;
+      sessionId: string;
+    }>({
+      query: ({ assessmentId, sessionId }) => ({
+        url: `/defendx/assessments/${assessmentId}/complete/anonymous`,
+        method: 'POST',
+        body: { sessionId },
+      }),
+      invalidatesTags: (_result, _error, { assessmentId }) => [
+        { type: 'Assessment', id: assessmentId },
+        'Assessment'
+      ],
+    }),
+
+    // Transfer anonymous assessment to authenticated user
+    transferAnonymousAssessment: builder.mutation<{
+      id: string;
+      userId: string;
+      organizationId: string;
+      transferredAt: string;
+      message: string;
+    }, {
+      sessionId: string;
+      userId: string;
+    }>({
+      query: ({ sessionId, userId }) => ({
+        url: '/defendx/assessments/transfer',
+        method: 'POST',
+        body: { sessionId, userId },
+      }),
+      invalidatesTags: ['Assessment'],
+    }),
+
+    // Get all questions (public endpoint - no auth required)
+    getQuestions: builder.query<{
+      categories: Array<{
+        category: string;
+        questions: Question[];
+      }>;
+    }, void>({
+      query: () => ({
+        url: '/defendx/questions',
+        method: 'GET',
+      }),
+      providesTags: ['Assessment'],
     }),
   }),
 });
@@ -424,4 +531,10 @@ export const {
   useCancelAssessmentMutation,
   useGetAssessmentQuestionsQuery,
   useGetAssessmentResponsesQuery,
+  // Anonymous assessment hooks
+  useCreateAnonymousAssessmentMutation,
+  useSubmitAnonymousResponsesMutation,
+  useCompleteAnonymousAssessmentMutation,
+  useTransferAnonymousAssessmentMutation,
+  useGetQuestionsQuery,
 } = assessmentApi;

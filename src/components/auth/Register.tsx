@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useRegisterMutation } from '../../store/api/authApi';
 import { useCreateOrganizationMutation, useJoinOrganizationMutation, useGetOrganizationsQuery } from '../../store/api/organizationApi';
+import { useTransferAnonymousAssessmentMutation } from '../../store/api/realDefendXApi';
 import { useAppDispatch } from '../../store/hooks';
 import { setCredentials } from '../../store/slices/authSlice';
+import { clearAnonymousSession } from '../../utils/anonymousSession';
 import { Shield, User, Mail, Phone, Lock, CheckCircle, Users, Building2, Plus, Search, Eye, EyeOff } from 'lucide-react';
 import type { UserRole } from '../../types';
 import { Sector, OrganizationSize } from '../../types';
@@ -12,10 +14,12 @@ type RegistrationStep = 'account' | 'organization';
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const [register, { isLoading, error }] = useRegisterMutation();
   const [createOrganization, { isLoading: isCreatingOrg, error: createOrgError }] = useCreateOrganizationMutation();
   const [joinOrganization, { isLoading: isJoiningOrg, error: joinOrgError }] = useJoinOrganizationMutation();
+  const [transferAssessment, { isLoading: isTransferring }] = useTransferAnonymousAssessmentMutation();
   
   const [currentStep, setCurrentStep] = useState<RegistrationStep>('account');
   const [userCredentials, setUserCredentials] = useState<any>(null);
@@ -23,6 +27,11 @@ const Register: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+
+  // Get anonymous assessment data from navigation state
+  const fromAnonymousAssessment = location.state?.fromAnonymousAssessment;
+  const anonymousSessionId = location.state?.sessionId;
+  const anonymousAssessmentId = location.state?.assessmentId;
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -203,6 +212,26 @@ const Register: React.FC = () => {
       // Store credentials immediately to enable authenticated API calls
       dispatch(setCredentials(result));
 
+      // If coming from anonymous assessment, transfer it to the authenticated user
+      if (fromAnonymousAssessment && anonymousSessionId && result.user?.id) {
+        try {
+          await transferAssessment({
+            sessionId: anonymousSessionId,
+            userId: result.user.id,
+          }).unwrap();
+          
+          // Clear anonymous session data
+          clearAnonymousSession();
+          
+          // Navigate to assessment results
+          navigate(`/defendx/results/${anonymousAssessmentId}`);
+          return; // Early return to prevent normal flow
+        } catch (transferErr: any) {
+          console.error('Failed to transfer assessment:', transferErr);
+          // Continue with normal flow even if transfer fails
+        }
+      }
+
       // If user has organization data already, navigate to dashboard
       if (result?.user?.organization || registerPayload.organizationId || registerPayload.organization) {
         navigate('/dashboard');
@@ -241,6 +270,26 @@ const Register: React.FC = () => {
         await joinOrganization({
           organizationId: orgData.selectedOrgId,
         }).unwrap();
+      }
+
+      // If coming from anonymous assessment, transfer it after organization setup
+      if (fromAnonymousAssessment && anonymousSessionId && userCredentials?.user?.id) {
+        try {
+          await transferAssessment({
+            sessionId: anonymousSessionId,
+            userId: userCredentials.user.id,
+          }).unwrap();
+          
+          // Clear anonymous session data
+          clearAnonymousSession();
+          
+          // Navigate to assessment results
+          navigate(`/defendx/results/${anonymousAssessmentId}`);
+          return; // Early return
+        } catch (transferErr: any) {
+          console.error('Failed to transfer assessment:', transferErr);
+          // Continue to dashboard even if transfer fails
+        }
       }
 
       // Organization operations completed successfully, navigate to dashboard
