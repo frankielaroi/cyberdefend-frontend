@@ -17,32 +17,76 @@ import type {
 
 // Enhanced Admin Types for Backend Integration
 export interface DashboardStatsResponse {
-  totalUsers: number;
-  activeUsers: number;
-  totalAssessments: number;
-  completedAssessments: number;
-  averageScore: number;
-  totalCampaigns: number;
-  activeCampaigns: number;
-  totalAlerts: number;
-  unacknowledgedAlerts: number;
-  byRegion: Record<string, number>;
-  bySector: Record<Sector, number>;
-  trends: Array<{
-    date: string;
-    assessments: number;
-    campaigns: number;
-    alerts: number;
-    newUsers: number;
+  overview: {
+    totalOrganizations: number;
+    activeOrganizations: number;
+    inactiveOrganizations: number;
+    totalUsers: number;
+    activeAssessments: number;
+    completedAssessments: number;
+    phishingCampaigns: number;
+    activeAgents: number;
+    totalAlerts: number;
+  };
+  nationalCSI: {
+    averageScore: number;
+    participatingOrgs: number;
+    participationRate: number;
+  };
+  sectorBreakdown: Array<{
+    sector: string;
+    averageScore: number;
+    organizationCount: number;
+    riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   }>;
-  recentActivity: Array<{
-    id: string;
-    type: 'assessment' | 'campaign' | 'alert' | 'user';
-    description: string;
-    timestamp: string;
-    userId?: string;
-    organizationId?: string;
-  }>;
+  growth: {
+    newOrganizationsThisMonth: number;
+    newUsersThisMonth: number;
+    assessmentsThisMonth: number;
+  };
+  generatedAt: string;
+}
+
+// Question and Category Types
+export interface QuestionOption {
+  id: string;
+  text: string;
+  value: string;
+  order: number;
+}
+
+export interface QuestionCategory {
+  id: string;
+  name: string;
+  description: string;
+  weight: number;
+  order: number;
+}
+
+export interface QuestionWithCategory {
+  id: string;
+  text: string;
+  type: 'YES_NO' | 'SINGLE_CHOICE' | 'RATING';
+  description: string | null;
+  weight: number;
+  order: number;
+  required: boolean;
+  options: QuestionOption[];
+}
+
+export interface CategoryWithQuestions {
+  category: QuestionCategory;
+  questions: QuestionWithCategory[];
+}
+
+export interface QuestionsResponse {
+  total: number;
+  categories: CategoryWithQuestions[];
+}
+
+export interface CategoriesResponse {
+  total: number;
+  categories: Array<QuestionCategory & { questionCount: number }>;
 }
 
 export interface UserFilters {
@@ -113,7 +157,7 @@ export interface UpdateOrganizationDto {
 export const adminApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     // Dashboard Statistics
-    getDashboardStats: builder.query<ApiResponse<DashboardStatsResponse>, {
+    getDashboardStats: builder.query<DashboardStatsResponse, {
       region?: string;
       sector?: string;
       startDate?: string;
@@ -266,12 +310,10 @@ export const adminApi = apiSlice.injectEndpoints({
     }),
 
     // Question Management
-    getQuestions: builder.query<PaginatedResponse<Question>, QuestionFiltersDto>({
+    getQuestions: builder.query<QuestionsResponse, QuestionFiltersDto>({
       query: (params = {}) => ({
-        url: '/admin/questions',
+        url: '/defendx/questions',
         params: {
-          page: params.page || 1,
-          limit: params.limit || 50,
           ...params,
         },
       }),
@@ -279,7 +321,7 @@ export const adminApi = apiSlice.injectEndpoints({
     }),
 
     getQuestion: builder.query<ApiResponse<Question>, string>({
-      query: (questionId) => `/admin/questions/${questionId}`,
+      query: (questionId) => `/defendx/questions/${questionId}`,
       providesTags: (_result, _error, questionId) => [
         { type: 'Question' as const, id: questionId }
       ],
@@ -287,16 +329,16 @@ export const adminApi = apiSlice.injectEndpoints({
 
     createQuestion: builder.mutation<ApiResponse<Question>, CreateQuestionDto>({
       query: (questionData) => ({
-        url: '/admin/questions',
+        url: '/defendx/questions',
         method: 'POST',
         body: questionData,
       }),
-      invalidatesTags: ['Question' as const],
+      invalidatesTags: ['Question' as const, 'Category' as const],
     }),
 
     updateQuestion: builder.mutation<ApiResponse<Question>, { id: string; data: UpdateQuestionDto }>({
       query: ({ id, data }) => ({
-        url: `/admin/questions/${id}`,
+        url: `/defendx/questions/${id}`,
         method: 'PUT',
         body: data,
       }),
@@ -308,15 +350,15 @@ export const adminApi = apiSlice.injectEndpoints({
 
     deleteQuestion: builder.mutation<ApiResponse<{ success: boolean }>, string>({
       query: (questionId) => ({
-        url: `/admin/questions/${questionId}`,
+        url: `/defendx/questions/${questionId}`,
         method: 'DELETE',
       }),
-      invalidatesTags: ['Question' as const],
+      invalidatesTags: ['Question' as const, 'Category' as const],
     }),
 
     bulkUpdateQuestions: builder.mutation<ApiResponse<{ updated: number }>, BulkQuestionUpdateDto>({
       query: (data) => ({
-        url: '/admin/questions/bulk-update',
+        url: '/defendx/questions/bulk-update',
         method: 'PUT',
         body: data,
       }),
@@ -324,20 +366,14 @@ export const adminApi = apiSlice.injectEndpoints({
     }),
 
     // Question Categories
-    getCategories: builder.query<ApiResponse<Array<{
-      name: string;
-      description?: string;
-      questionCount: number;
-      weight?: number;
-      isActive: boolean;
-    }>>, void>({
-      query: () => '/admin/questions/categories',
+    getCategories: builder.query<CategoriesResponse, void>({
+      query: () => '/defendx/questions/categories',
       providesTags: ['Category' as const],
     }),
 
     createCategory: builder.mutation<ApiResponse<{ name: string; description?: string; weight?: number }>, QuestionCategoryDto>({
       query: (categoryData) => ({
-        url: '/admin/questions/categories',
+        url: '/defendx/questions/categories',
         method: 'POST',
         body: categoryData,
       }),
@@ -346,7 +382,7 @@ export const adminApi = apiSlice.injectEndpoints({
 
     updateCategory: builder.mutation<ApiResponse<{ name: string; description?: string; weight?: number }>, { id: string; data: Partial<QuestionCategoryDto> }>({
       query: ({ id, data }) => ({
-        url: `/admin/questions/categories/${id}`,
+        url: `/defendx/questions/categories/${id}`,
         method: 'PUT',
         body: data,
       }),
@@ -355,7 +391,7 @@ export const adminApi = apiSlice.injectEndpoints({
 
     deleteCategory: builder.mutation<ApiResponse<{ success: boolean }>, string>({
       query: (categoryId) => ({
-        url: `/admin/questions/categories/${categoryId}`,
+        url: `/defendx/questions/categories/${categoryId}`,
         method: 'DELETE',
       }),
       invalidatesTags: ['Category' as const, 'Question' as const],

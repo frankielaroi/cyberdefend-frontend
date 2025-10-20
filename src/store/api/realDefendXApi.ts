@@ -483,11 +483,12 @@ export const assessmentApi = apiSlice.injectEndpoints({
     }, {
       sessionId: string;
       userId: string;
+      organizationId: string;
     }>({
-      query: ({ sessionId, userId }) => ({
+      query: ({ sessionId, userId, organizationId }) => ({
         url: '/defendx/assessments/transfer',
         method: 'POST',
-        body: { sessionId, userId },
+        body: { sessionId, userId, organizationId },
       }),
       invalidatesTags: ['Assessment'],
     }),

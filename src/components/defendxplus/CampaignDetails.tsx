@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useGetCampaignAnalyticsQuery } from '../../store/api/realDefendXPlusApi';
+import { 
+  useGetCampaignAnalyticsQuery, 
+  useLaunchCampaignMutation,
+  useGetCampaignQuery
+} from '../../store/api/realDefendXPlusApi';
 import { 
   ArrowLeft, 
   Download, 
@@ -15,7 +19,9 @@ import {
   CheckCircle,
   Clock,
   Target,
-  RefreshCw
+  RefreshCw,
+  Play,
+  Calendar
 } from 'lucide-react';
 
 interface CampaignTarget {
@@ -36,9 +42,15 @@ export default function CampaignDetails() {
   const { id: campaignId } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const { data: campaignResults, isLoading, error } = useGetCampaignAnalyticsQuery(campaignId!, {
+  const { data: campaignResults, isLoading, error, refetch } = useGetCampaignAnalyticsQuery(campaignId!, {
     skip: !campaignId
   });
+  
+  const { data: campaignData } = useGetCampaignQuery(campaignId!, {
+    skip: !campaignId
+  });
+
+  const [launchCampaign, { isLoading: isLaunching }] = useLaunchCampaignMutation();
 
   const [selectedTab, setSelectedTab] = useState<'overview' | 'targets' | 'timeline'>('overview');
   const [filterStatus, setFilterStatus] = useState<'all' | 'delivered' | 'opened' | 'clicked' | 'reported'>('all');
@@ -152,7 +164,38 @@ export default function CampaignDetails() {
     return { level: 'Low', class: 'text-green-600 bg-green-50' };
   };
 
+  const handleLaunchCampaign = async (useSchedule: boolean = false) => {
+    const campaign = (campaignData as any)?.data;
+    const hasSchedule = campaign?.scheduledAt;
+    
+    const confirmMessage = useSchedule && hasSchedule
+      ? `Are you sure you want to schedule this campaign for ${new Date(campaign.scheduledAt).toLocaleString()}?`
+      : 'Are you sure you want to launch this campaign? Phishing emails will be sent to all targets immediately.';
+    
+    if (confirm(confirmMessage)) {
+      try {
+        await launchCampaign({
+          campaignId: campaignId!,
+          launchType: (useSchedule && hasSchedule) ? 'SCHEDULED' : 'NOW',
+          scheduledAt: (useSchedule && hasSchedule) ? campaign.scheduledAt : undefined
+        }).unwrap();
+        
+        const successMessage = (useSchedule && hasSchedule)
+          ? `Campaign scheduled for ${new Date(campaign.scheduledAt).toLocaleString()}!`
+          : 'Campaign launched successfully!';
+        alert(successMessage);
+        refetch();
+      } catch (error) {
+        console.error('Failed to launch campaign:', error);
+        alert('Failed to launch campaign. Please try again.');
+      }
+    }
+  };
+
   const riskLevel = getRiskLevel(openRate, clickRate);
+  const campaign = (campaignData as any)?.data;
+  const campaignStatus = campaign?.status || 'DRAFT';
+  const hasScheduledTime = campaign?.scheduledAt;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -175,10 +218,66 @@ export default function CampaignDetails() {
             </span>
           </div>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-          <Download className="w-4 h-4" />
-          Export Report
-        </button>
+        
+        <div className="flex items-center gap-2">
+          {/* Launch buttons for DRAFT campaigns */}
+          {campaignStatus === 'DRAFT' && (
+            <>
+              {hasScheduledTime && (
+                <div className="flex items-center gap-2 mr-2">
+                  <div className="text-right">
+                    <p className="text-xs text-slate-500">Scheduled for:</p>
+                    <p className="text-sm font-medium text-slate-700">
+                      {new Date(campaign.scheduledAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleLaunchCampaign(true)}
+                    disabled={isLaunching}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Use scheduled time"
+                  >
+                    {isLaunching ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                        Scheduling...
+                      </>
+                    ) : (
+                      <>
+                        <Calendar className="w-4 h-4" />
+                        Activate Schedule
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={() => handleLaunchCampaign(false)}
+                disabled={isLaunching}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Launch immediately"
+              >
+                {isLaunching ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                    Launching...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4" />
+                    {hasScheduledTime ? 'Launch Now' : 'Launch Campaign'}
+                  </>
+                )}
+              </button>
+            </>
+          )}
+          
+          {/* Export Report button */}
+          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <Download className="w-4 h-4" />
+            Export Report
+          </button>
+        </div>
       </div>
 
       {/* Key Metrics */}

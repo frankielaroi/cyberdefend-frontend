@@ -42,6 +42,7 @@ export default function AssessmentQuestionnaire({ assessmentId, onComplete }: Pr
   const [results, setResults] = useState<any>(null);
   const [lastSavedIndex, setLastSavedIndex] = useState(-1);
 
+
   // Load assessment with questions when component mounts
   useEffect(() => {
     if (assessmentData && (!currentAssessment || currentQuestions.length === 0)) {

@@ -56,14 +56,20 @@ export const navigationConfig: RoleNavigation = {
           href: '/dashboard/admin/questions',
           icon: DocumentTextIcon,
           description: 'Manage assessment questions'
+        },
+        {
+          name: 'Phishing Dashboard',
+          href: '/dashboard/defendxplus/phishing',
+          icon: ExclamationTriangleIcon,
+          description: 'Phishing campaigns'
+        },
+         {
+          name: 'Template Manager',
+          href: '/dashboard/defendxplus/templates',
+          icon: DocumentTextIcon,
+          description: 'Manage campaign templates'
         }
       ]
-    },
-    {
-      name: 'Analytics',
-      href: '/dashboard/analytics',
-      icon: ChartBarIcon,
-      description: 'System-wide analytics'
     }
   ],
   
@@ -93,12 +99,6 @@ export const navigationConfig: RoleNavigation = {
           description: 'Manage assessment questions'
         }
       ]
-    },
-    {
-      name: 'Analytics',
-      href: '/dashboard/analytics',
-      icon: ChartBarIcon,
-      description: 'CSA analytics'
     }
   ],
   

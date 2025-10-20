@@ -21,15 +21,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-type AcknowledgeAlertMutationResult = [
-  (params: { id: string; data: any }) => Promise<{ data: any }>,
-  { isLoading: boolean; error: any; reset: () => void }
-];
 
-type CloseAlertMutationResult = [
-  (params: { id: string; data: any }) => Promise<{ data: any }>,
-  { isLoading: boolean; error: any; reset: () => void }
-];
 
 interface AlertFilters {
   severity: 'all' | 'low' | 'medium' | 'high' | 'critical';
@@ -49,6 +41,7 @@ interface SystemMetric {
 }
 
 export default function MonitoringDashboard() {
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [filters, setFilters] = useState<AlertFilters>({
     severity: 'all',
     status: 'all',
@@ -59,13 +52,29 @@ export default function MonitoringDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
 
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePosition({ x: e.clientX, y: e.clientY });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
   const { data: alerts, isLoading: alertsLoading, refetch: refetchAlerts } = useGetAlertsQuery({
     severity: filters.severity !== 'all' ? filters.severity : undefined,
-    status: filters.status !== 'all' ? filters.status : undefined
+    acknowledged:
+      filters.status === 'all'
+        ? undefined
+        : filters.status === 'open'
+        ? false
+        : filters.status === 'acknowledged'
+        ? true
+        : undefined
   });
 
-  const [acknowledgeAlert] = useAcknowledgeAlertMutation() as AcknowledgeAlertMutationResult;
-  const [closeAlert] = useCloseAlertMutation() as CloseAlertMutationResult;
+  const [acknowledgeAlert] = useAcknowledgeAlertMutation();
+  const [closeAlert] = useCloseAlertMutation();
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
@@ -155,10 +164,10 @@ export default function MonitoringDashboard() {
   // Utility functions for rendering
   const getMetricColor = (status: string) => {
     switch (status) {
-      case 'healthy': return 'bg-green-100';
-      case 'warning': return 'bg-yellow-100';
-      case 'critical': return 'bg-red-100';
-      default: return 'bg-slate-100';
+      case 'healthy': return 'bg-green-500/20';
+      case 'warning': return 'bg-yellow-500/20';
+      case 'critical': return 'bg-red-500/20';
+      default: return 'bg-slate-500/20';
     }
   };
 
@@ -174,41 +183,33 @@ export default function MonitoringDashboard() {
 
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
-      case 'critical': return <AlertCircle className="w-5 h-5 text-red-600" />;
-      case 'high': return <AlertTriangle className="w-5 h-5 text-orange-600" />;
-      case 'medium': return <AlertTriangle className="w-5 h-5 text-yellow-600" />;
-      case 'low': return <AlertTriangle className="w-5 h-5 text-blue-600" />;
-      default: return <AlertTriangle className="w-5 h-5 text-slate-600" />;
+      case 'critical': return <AlertCircle className="w-5 h-5 text-red-400" />;
+      case 'high': return <AlertTriangle className="w-5 h-5 text-orange-400" />;
+      case 'medium': return <AlertTriangle className="w-5 h-5 text-yellow-400" />;
+      case 'low': return <AlertTriangle className="w-5 h-5 text-blue-400" />;
+      default: return <AlertTriangle className="w-5 h-5 text-slate-400" />;
     }
   };
 
   const getSeverityBadge = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'bg-red-100 text-red-700 border-red-200';
-      case 'high': return 'bg-orange-100 text-orange-700 border-orange-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'low': return 'bg-blue-100 text-blue-700 border-blue-200';
-      default: return 'bg-slate-100 text-slate-700 border-slate-200';
+      case 'critical': return 'bg-red-500/20 text-red-300 border-red-400/50';
+      case 'high': return 'bg-orange-500/20 text-orange-300 border-orange-400/50';
+      case 'medium': return 'bg-yellow-500/20 text-yellow-300 border-yellow-400/50';
+      case 'low': return 'bg-blue-500/20 text-blue-300 border-blue-400/50';
+      default: return 'bg-slate-500/20 text-slate-300 border-slate-400/50';
     }
   };
 
   const getStatusBadge = (acknowledged: boolean) => {
     return acknowledged 
-      ? 'bg-green-100 text-green-700 border-green-200'
-      : 'bg-orange-100 text-orange-700 border-orange-200';
+      ? 'bg-green-500/20 text-green-300 border-green-400/50'
+      : 'bg-orange-500/20 text-orange-300 border-orange-400/50';
   };
 
   const handleAcknowledgeAlert = async (alertId: string) => {
     try {
-      const result = await acknowledgeAlert({ 
-        id: alertId,
-        data: {
-          alertId, 
-          acknowledgedBy: 'current_user', // In real app, get from auth context
-          notes: 'Alert acknowledged from monitoring dashboard' 
-        }
-      });
-      
+      const result = await acknowledgeAlert(alertId);
       if (result.data) {
         refetchAlerts();
       }
@@ -220,12 +221,8 @@ export default function MonitoringDashboard() {
   const handleCloseAlert = async (alertId: string) => {
     try {
       const result = await closeAlert({ 
-        id: alertId,
-        data: {
-          alertId, 
-          closedBy: 'current_user', // In real app, get from auth context
-          resolution: 'Alert closed from monitoring dashboard' 
-        }
+        alertId, 
+        resolution: 'Alert closed from monitoring dashboard' 
       });
       
       if (result.data) {
@@ -238,8 +235,9 @@ export default function MonitoringDashboard() {
 
   const alertsList = alerts?.data || [];
   const filteredAlerts = alertsList.filter((alert: any) => {
-    const matchesSearch = alert.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         alert.type.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchTermLower = (searchTerm || '').toLowerCase();
+    const matchesSearch = ((alert.message?.toLowerCase() || '').includes(searchTermLower)) ||
+                         ((alert.type?.toLowerCase() || '').includes(searchTermLower));
     return matchesSearch;
   });
 
@@ -247,153 +245,177 @@ export default function MonitoringDashboard() {
   const criticalAlerts = alertsList.filter((alert: any) => alert.severity === 'critical').length;
   const highAlerts = alertsList.filter((alert: any) => alert.severity === 'high').length;
   const openAlerts = alertsList.filter((alert: any) => !alert.acknowledged).length;  return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div 
+          className="absolute w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse"
+          style={{
+            left: `${mousePosition.x * 0.02}%`,
+            top: `${mousePosition.y * 0.02}%`,
+            transform: 'translate(-50%, -50%)'
+          }}
+        />
+        <div 
+          className="absolute w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse"
+          style={{
+            right: `${mousePosition.x * 0.01}%`,
+            bottom: `${mousePosition.y * 0.01}%`,
+            transform: 'translate(50%, 50%)',
+            animationDelay: '2s'
+          }}
+        />
+      </div>
+
+      <div className="relative z-10 max-w-7xl mx-auto p-6 space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Security Monitoring</h1>
-          <p className="text-slate-600 mt-1">Real-time security alerts and system health</p>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setAutoRefresh(!autoRefresh)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
-              autoRefresh 
-                ? 'bg-green-50 border-green-200 text-green-700' 
-                : 'bg-slate-50 border-slate-200 text-slate-700'
-            }`}
-          >
-            <RefreshCw className={`w-4 h-4 ${autoRefresh ? 'animate-spin' : ''}`} />
-            Auto Refresh
-          </button>
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 p-8 shadow-2xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold text-white mb-2">Security Monitoring</h1>
+            <p className="text-slate-300 text-lg">Real-time security alerts and system health</p>
+          </div>
           
-          <button
-            onClick={() => refetchAlerts()}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh Now
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className={`flex items-center gap-3 px-6 py-3 rounded-xl border transition-all duration-300 backdrop-blur-sm ${
+                autoRefresh 
+                  ? 'bg-green-500/20 border-green-400/50 text-green-300 hover:bg-green-500/30' 
+                  : 'bg-white/10 border-white/20 text-slate-300 hover:bg-white/20'
+              }`}
+            >
+              <RefreshCw className={`w-5 h-5 ${autoRefresh ? 'animate-spin' : ''}`} />
+              Auto Refresh
+            </button>
+            
+            <button
+              onClick={() => refetchAlerts()}
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+            >
+              <RefreshCw className="w-5 h-5" />
+              Refresh Now
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Alert Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 p-6 shadow-2xl hover:bg-white/15 transition-all duration-300 transform hover:scale-105">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 text-sm">Critical Alerts</p>
-              <p className="text-2xl font-bold text-red-600">{criticalAlerts}</p>
-              <p className="text-xs text-slate-500 mt-1">Immediate attention required</p>
+              <p className="text-slate-300 text-sm font-medium">Critical Alerts</p>
+              <p className="text-3xl font-bold text-red-400 mt-1">{criticalAlerts}</p>
+              <p className="text-xs text-slate-400 mt-2">Immediate attention required</p>
             </div>
-            <div className="p-3 bg-red-100 rounded-lg">
-              <AlertCircle className="w-6 h-6 text-red-600" />
+            <div className="p-4 bg-red-500/20 rounded-xl">
+              <AlertCircle className="w-8 h-8 text-red-400" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 p-6 shadow-2xl hover:bg-white/15 transition-all duration-300 transform hover:scale-105">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 text-sm">High Priority</p>
-              <p className="text-2xl font-bold text-orange-600">{highAlerts}</p>
-              <p className="text-xs text-slate-500 mt-1">Requires investigation</p>
+              <p className="text-slate-300 text-sm font-medium">High Priority</p>
+              <p className="text-3xl font-bold text-orange-400 mt-1">{highAlerts}</p>
+              <p className="text-xs text-slate-400 mt-2">Requires investigation</p>
             </div>
-            <div className="p-3 bg-orange-100 rounded-lg">
-              <AlertTriangle className="w-6 h-6 text-orange-600" />
+            <div className="p-4 bg-orange-500/20 rounded-xl">
+              <AlertTriangle className="w-8 h-8 text-orange-400" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 p-6 shadow-2xl hover:bg-white/15 transition-all duration-300 transform hover:scale-105">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 text-sm">Open Alerts</p>
-              <p className="text-2xl font-bold text-slate-900">{openAlerts}</p>
-              <p className="text-xs text-slate-500 mt-1">Unacknowledged alerts</p>
+              <p className="text-slate-300 text-sm font-medium">Open Alerts</p>
+              <p className="text-3xl font-bold text-blue-400 mt-1">{openAlerts}</p>
+              <p className="text-xs text-slate-400 mt-2">Unacknowledged alerts</p>
             </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <Bell className="w-6 h-6 text-blue-600" />
+            <div className="p-4 bg-blue-500/20 rounded-xl">
+              <Bell className="w-8 h-8 text-blue-400" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 p-6 shadow-2xl hover:bg-white/15 transition-all duration-300 transform hover:scale-105">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 text-sm">System Health</p>
-              <p className="text-2xl font-bold text-green-600">Good</p>
-              <p className="text-xs text-slate-500 mt-1">All systems operational</p>
+              <p className="text-slate-300 text-sm font-medium">System Health</p>
+              <p className="text-3xl font-bold text-green-400 mt-1">Good</p>
+              <p className="text-xs text-slate-400 mt-2">All systems operational</p>
             </div>
-            <div className="p-3 bg-green-100 rounded-lg">
-              <Shield className="w-6 h-6 text-green-600" />
+            <div className="p-4 bg-green-500/20 rounded-xl">
+              <Shield className="w-8 h-8 text-green-400" />
             </div>
           </div>
         </div>
       </div>
 
       {/* System Metrics */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <h2 className="text-xl font-semibold text-slate-900 mb-4">System Metrics</h2>
+      <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 p-8 shadow-2xl">
+        <h2 className="text-2xl font-bold text-white mb-6">System Metrics</h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {systemMetrics.map((metric) => (
-            <div key={metric.id} className="p-4 bg-slate-50 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <div className={`p-2 rounded-lg ${getMetricColor(metric.status)}`}>
+            <div key={metric.id} className="backdrop-blur-sm bg-white/5 rounded-xl p-6 border border-white/10 hover:bg-white/10 transition-all duration-300 transform hover:scale-105">
+              <div className="flex items-center justify-between mb-4">
+                <div className={`p-3 rounded-xl ${getMetricColor(metric.status)}`}>
                   {getMetricIcon(metric.id)}
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                   {metric.trend === 'up' ? (
-                    <TrendingUp className="w-4 h-4 text-green-500" />
+                    <TrendingUp className="w-5 h-5 text-green-400" />
                   ) : metric.trend === 'down' ? (
-                    <TrendingDown className="w-4 h-4 text-red-500" />
+                    <TrendingDown className="w-5 h-5 text-red-400" />
                   ) : (
-                    <div className="w-4 h-4" />
+                    <div className="w-5 h-5" />
                   )}
-                  <span className={`text-xs ${
-                    metric.trend === 'up' ? 'text-green-600' : 
-                    metric.trend === 'down' ? 'text-red-600' : 
-                    'text-slate-600'
+                  <span className={`text-sm font-medium ${
+                    metric.trend === 'up' ? 'text-green-400' : 
+                    metric.trend === 'down' ? 'text-red-400' : 
+                    'text-slate-400'
                   }`}>
                     {metric.change > 0 ? '+' : ''}{metric.change}
                   </span>
                 </div>
               </div>
               <div>
-                <p className="text-2xl font-bold text-slate-900">
+                <p className="text-3xl font-bold text-white">
                   {metric.value}{metric.unit}
                 </p>
-                <p className="text-sm text-slate-600">{metric.name}</p>
+                <p className="text-slate-300 text-sm">{metric.name}</p>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         {/* Alerts List */}
-        <div className="xl:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200">
-          <div className="p-6 border-b border-slate-200">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-slate-900">Security Alerts</h2>
-              <span className="text-sm text-slate-500">
+        <div className="xl:col-span-2 backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 shadow-2xl">
+          <div className="p-8 border-b border-white/20">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white">Security Alerts</h2>
+              <span className="text-sm text-slate-300">
                 Last updated: {new Date().toLocaleTimeString()}
               </span>
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-wrap items-center gap-6">
               <div className="flex-1 min-w-64">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Search alerts..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full pl-12 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 backdrop-blur-sm"
                   />
                 </div>
               </div>
@@ -401,36 +423,36 @@ export default function MonitoringDashboard() {
               <select
                 value={filters.severity}
                 onChange={(e) => setFilters({ ...filters, severity: e.target.value as any })}
-                className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 backdrop-blur-sm"
               >
-                <option value="all">All Severities</option>
-                <option value="critical">Critical</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
+                <option value="all" className="bg-slate-800">All Severities</option>
+                <option value="critical" className="bg-slate-800">Critical</option>
+                <option value="high" className="bg-slate-800">High</option>
+                <option value="medium" className="bg-slate-800">Medium</option>
+                <option value="low" className="bg-slate-800">Low</option>
               </select>
 
               <select
                 value={filters.status}
                 onChange={(e) => setFilters({ ...filters, status: e.target.value as any })}
-                className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 backdrop-blur-sm"
               >
-                <option value="all">All Status</option>
-                <option value="open">Open</option>
-                <option value="acknowledged">Acknowledged</option>
-                <option value="closed">Closed</option>
+                <option value="all" className="bg-slate-800">All Status</option>
+                <option value="open" className="bg-slate-800">Open</option>
+                <option value="acknowledged" className="bg-slate-800">Acknowledged</option>
+                <option value="closed" className="bg-slate-800">Closed</option>
               </select>
 
               <select
                 value={filters.timeRange}
                 onChange={(e) => setFilters({ ...filters, timeRange: e.target.value as any })}
-                className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 backdrop-blur-sm"
               >
-                <option value="1h">Last Hour</option>
-                <option value="6h">Last 6 Hours</option>
-                <option value="24h">Last 24 Hours</option>
-                <option value="7d">Last 7 Days</option>
-                <option value="30d">Last 30 Days</option>
+                <option value="1h" className="bg-slate-800">Last Hour</option>
+                <option value="6h" className="bg-slate-800">Last 6 Hours</option>
+                <option value="24h" className="bg-slate-800">Last 24 Hours</option>
+                <option value="7d" className="bg-slate-800">Last 7 Days</option>
+                <option value="30d" className="bg-slate-800">Last 30 Days</option>
               </select>
             </div>
           </div>
@@ -438,40 +460,40 @@ export default function MonitoringDashboard() {
           <div className="max-h-96 overflow-y-auto">
             {alertsLoading ? (
               <div className="flex items-center justify-center h-32">
-                <RefreshCw className="w-6 h-6 animate-spin text-slate-400" />
+                <RefreshCw className="w-8 h-8 animate-spin text-slate-400" />
               </div>
             ) : filteredAlerts.length === 0 ? (
-              <div className="text-center py-8 text-slate-500">
+              <div className="text-center py-12 text-slate-400">
                 No alerts match the current filters.
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-white/10">
                 {filteredAlerts.map((alert: any) => (
-                  <div key={alert.id} className="p-4 hover:bg-slate-50 transition-colors">
+                  <div key={alert.id} className="p-6 hover:bg-white/5 transition-all duration-300">
                     <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-3 flex-1">
+                      <div className="flex items-start gap-4 flex-1">
                         {getSeverityIcon(alert.severity)}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getSeverityBadge(alert.severity)}`}>
-                              {alert.severity.toUpperCase()}
+                          <div className="flex items-center gap-3 mb-3">
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getSeverityBadge(alert.severity)}`}>
+                              {alert.severity?.toUpperCase() || 'UNKNOWN'}
                             </span>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadge(alert.acknowledged)}`}>
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusBadge(alert.acknowledged)}`}>
                               {alert.acknowledged ? 'Acknowledged' : 'Open'}
                             </span>
                           </div>
-                          <p className="text-sm font-medium text-slate-900 mb-1">
+                          <p className="text-white text-base font-medium mb-2">
                             {alert.message}
                           </p>
-                          <div className="flex items-center gap-4 text-xs text-slate-500">
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
+                          <div className="flex items-center gap-6 text-sm text-slate-300">
+                            <span className="flex items-center gap-2">
+                              <Clock className="w-4 h-4" />
                               {new Date(alert.timestamp).toLocaleString()}
                             </span>
                             <span>{alert.type}</span>
                             {alert.sourceAgent && (
-                              <span className="flex items-center gap-1">
-                                <Server className="w-3 h-3" />
+                              <span className="flex items-center gap-2">
+                                <Server className="w-4 h-4" />
                                 {alert.sourceAgent}
                               </span>
                             )}
@@ -479,29 +501,29 @@ export default function MonitoringDashboard() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 ml-4">
+                      <div className="flex items-center gap-3 ml-6">
                         {!alert.acknowledged && (
                           <button
                             onClick={() => handleAcknowledgeAlert(alert.id)}
-                            className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                            className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-500/20 rounded-lg transition-all duration-300"
                             title="Acknowledge"
                           >
-                            <CheckCircle className="w-4 h-4" />
+                            <CheckCircle className="w-5 h-5" />
                           </button>
                         )}
                         <button
                           onClick={() => console.log('View alert details:', alert.id)}
-                          className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded"
+                          className="p-2 text-slate-400 hover:text-slate-300 hover:bg-white/10 rounded-lg transition-all duration-300"
                           title="View Details"
                         >
-                          <Eye className="w-4 h-4" />
+                          <Eye className="w-5 h-5" />
                         </button>
                         <button
                           onClick={() => handleCloseAlert(alert.id)}
-                          className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+                          className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/20 rounded-lg transition-all duration-300"
                           title="Close"
                         >
-                          <X className="w-4 h-4" />
+                          <X className="w-5 h-5" />
                         </button>
                       </div>
                     </div>
@@ -513,29 +535,29 @@ export default function MonitoringDashboard() {
         </div>
 
         {/* Recent Events Timeline */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Recent Events</h3>
+        <div className="backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 p-8 shadow-2xl">
+          <h3 className="text-xl font-bold text-white mb-6">Recent Events</h3>
           
-          <div className="space-y-4">
+          <div className="space-y-6">
             {mockRecentEvents.map((event, index) => (
-              <div key={event.id} className="flex items-start gap-3">
+              <div key={event.id} className="flex items-start gap-4">
                 <div className="flex flex-col items-center">
-                  <div className={`w-3 h-3 rounded-full ${
-                    event.severity === 'critical' ? 'bg-red-500' :
-                    event.severity === 'high' ? 'bg-orange-500' :
-                    event.severity === 'medium' ? 'bg-yellow-500' :
-                    'bg-blue-500'
+                  <div className={`w-4 h-4 rounded-full ${
+                    event.severity === 'critical' ? 'bg-red-400' :
+                    event.severity === 'high' ? 'bg-orange-400' :
+                    event.severity === 'medium' ? 'bg-yellow-400' :
+                    'bg-blue-400'
                   }`} />
                   {index < mockRecentEvents.length - 1 && (
-                    <div className="w-px h-8 bg-slate-200 mt-2" />
+                    <div className="w-px h-10 bg-white/20 mt-3" />
                   )}
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 mb-1">
+                  <p className="text-white text-sm font-medium mb-2">
                     {event.message}
                   </p>
-                  <div className="flex items-center justify-between text-xs text-slate-500">
+                  <div className="flex items-center justify-between text-xs text-slate-300">
                     <span>{event.source}</span>
                     <span>{event.timestamp.toLocaleTimeString()}</span>
                   </div>
@@ -544,13 +566,14 @@ export default function MonitoringDashboard() {
             ))}
           </div>
 
-          <div className="mt-6 pt-4 border-t border-slate-200">
-            <button className="w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium">
+          <div className="mt-8 pt-6 border-t border-white/20">
+            <button className="w-full text-center text-sm text-blue-400 hover:text-blue-300 font-semibold transition-colors duration-300">
               View All Events
             </button>
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

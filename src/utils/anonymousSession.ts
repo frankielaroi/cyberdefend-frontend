@@ -6,6 +6,7 @@
 const ANONYMOUS_SESSION_KEY = 'defendx_anonymous_session';
 const ANONYMOUS_ASSESSMENT_KEY = 'defendx_anonymous_assessment';
 const ANONYMOUS_RESPONSES_KEY = 'defendx_anonymous_responses';
+const ANONYMOUS_RESULT_KEY = 'defendx_anonymous_result';
 
 /**
  * Generate a UUID v4
@@ -58,6 +59,7 @@ export function clearAnonymousSession(): void {
     sessionStorage.removeItem(ANONYMOUS_SESSION_KEY);
     sessionStorage.removeItem(ANONYMOUS_ASSESSMENT_KEY);
     sessionStorage.removeItem(ANONYMOUS_RESPONSES_KEY);
+    sessionStorage.removeItem(ANONYMOUS_RESULT_KEY);
   } catch (error) {
     console.error('Failed to clear anonymous session:', error);
   }
@@ -148,4 +150,39 @@ export function getAnonymousSessionData(): AnonymousSessionData | null {
     assessmentId,
     responses
   };
+}
+
+/**
+ * Store anonymous assessment result
+ */
+export function storeAnonymousAssessmentResult(result: any): void {
+  try {
+    sessionStorage.setItem(ANONYMOUS_RESULT_KEY, JSON.stringify(result));
+  } catch (error) {
+    console.error('Failed to store anonymous assessment result:', error);
+  }
+}
+
+/**
+ * Get anonymous assessment result
+ */
+export function getAnonymousAssessmentResult(): any | null {
+  try {
+    const stored = sessionStorage.getItem(ANONYMOUS_RESULT_KEY);
+    return stored ? JSON.parse(stored) : null;
+  } catch (error) {
+    console.error('Failed to get anonymous assessment result:', error);
+    return null;
+  }
+}
+
+/**
+ * Clear anonymous assessment result
+ */
+export function clearAnonymousAssessmentResult(): void {
+  try {
+    sessionStorage.removeItem(ANONYMOUS_RESULT_KEY);
+  } catch (error) {
+    console.error('Failed to clear anonymous assessment result:', error);
+  }
 }

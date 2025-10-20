@@ -103,7 +103,7 @@ This document describes the complete admin question management system that allow
 
 #### Category Management Endpoints
 
-1. **GET /admin/questions/categories** - List all categories
+1. **GET /defendx/questions/categories** - List all categories
    ```typescript
    // Response
    ApiResponse<Array<{
@@ -115,7 +115,7 @@ This document describes the complete admin question management system that allow
    }>>
    ```
 
-2. **POST /admin/questions/categories** - Create category
+2. **POST /defendx/questions/categories** - Create category
    ```typescript
    // Request body
    QuestionCategoryDto {
@@ -126,8 +126,8 @@ This document describes the complete admin question management system that allow
    }
    ```
 
-3. **PUT /admin/questions/categories/{id}** - Update category
-4. **DELETE /admin/questions/categories/{id}** - Delete category
+3. **PUT /defendx/questions/categories/{id}** - Update category
+4. **DELETE /defendx/questions/categories/{id}** - Delete category
 
 ## Data Types
 

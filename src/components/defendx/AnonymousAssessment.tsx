@@ -20,8 +20,8 @@ import {
   getAnonymousAssessmentId,
   storeAnonymousResponses,
   getAnonymousResponses,
+  storeAnonymousAssessmentResult,
 } from '../../utils/anonymousSession';
-import type { Question } from '../../types';
 
 interface AnonymousResponse {
   questionId: string;
@@ -197,6 +197,12 @@ export default function AnonymousAssessment() {
         assessmentId,
         sessionId,
       }).unwrap();
+
+      // Save the completed assessment result to session storage
+      storeAnonymousAssessmentResult({
+        sessionId,
+        ...result
+      });
 
       setAssessmentResult(result);
     } catch (error) {

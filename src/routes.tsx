@@ -108,7 +108,7 @@ export const router = createBrowserRouter([
       {
         path: 'defendxplus/phishing',
         element: (
-          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
+          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER','SUPER_ADMIN']}>
             <PhishingDashboard />
           </ProtectedRoute>
         ),
@@ -116,7 +116,7 @@ export const router = createBrowserRouter([
       {
         path: 'defendxplus/campaigns/create',
         element: (
-          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
+          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER','SUPER_ADMIN']}>
             <CreateCampaignPage />
           </ProtectedRoute>
         ),
@@ -124,7 +124,7 @@ export const router = createBrowserRouter([
       {
         path: 'defendxplus/templates',
         element: (
-          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
+          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER','SUPER_ADMIN']}>
             <TemplateManager />
           </ProtectedRoute>
         ),

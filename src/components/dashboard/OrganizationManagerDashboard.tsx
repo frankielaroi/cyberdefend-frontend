@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useGetAssessmentHistoryQuery } from '../../store/api/defendxApi';
 import { useGetCampaignsQuery } from '../../store/api/defendxPlusApi';
@@ -19,10 +19,23 @@ import {
 
 export default function OrganizationManagerDashboard() {
   const user = useAppSelector((state) => state.auth.user);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   
   const { data: assessments, isLoading: assessmentsLoading, error: assessmentsError } = useGetAssessmentHistoryQuery({});
   const { data: campaigns, isLoading: campaignsLoading, error: campaignsError } = useGetCampaignsQuery({});
   const { data: subscription, error: subscriptionError } = useGetSubscriptionQuery();
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePosition({
+        x: (e.clientX / window.innerWidth) * 100,
+        y: (e.clientY / window.innerHeight) * 100,
+      });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
 
   // Handle assessments data from paginated response
   const assessmentsArray = assessments?.data || [];
@@ -49,7 +62,28 @@ export default function OrganizationManagerDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div
+          className="absolute w-96 h-96 bg-blue-500/10 rounded-full blur-3xl transition-all duration-1000 ease-out"
+          style={{
+            left: `${mousePosition.x}%`,
+            top: `${mousePosition.y}%`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        />
+        <div
+          className="absolute w-96 h-96 bg-purple-500/10 rounded-full blur-3xl transition-all duration-1000 ease-out"
+          style={{
+            left: `${100 - mousePosition.x}%`,
+            top: `${100 - mousePosition.y}%`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        />
+      </div>
+
+      <div className="relative z-10 p-8 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -108,7 +142,7 @@ export default function OrganizationManagerDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-slate-800 rounded-xl shadow-sm border border-slate-700 p-6">
+      <div className="bg-slate-800/60 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6 shadow-2xl">
         <h2 className="text-xl font-semibold text-white mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <ActionCard
@@ -143,7 +177,7 @@ export default function OrganizationManagerDashboard() {
       {/* Recent Activity & Status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Assessment Status */}
-        <div className="bg-slate-800 rounded-xl shadow-sm border border-slate-700 p-6">
+        <div className="bg-slate-800/60 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6 shadow-2xl">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-white">Assessment Status</h3>
             <Link 
@@ -215,7 +249,7 @@ export default function OrganizationManagerDashboard() {
         </div>
 
         {/* Phishing Campaigns */}
-        <div className="bg-slate-800 rounded-xl shadow-sm border border-slate-700 p-6">
+        <div className="bg-slate-800/60 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6 shadow-2xl">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-white">Phishing Campaigns</h3>
             <Link 
@@ -289,10 +323,10 @@ export default function OrganizationManagerDashboard() {
 
       {/* Subscription Status */}
       {subscription && (
-        <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-xl border border-slate-600 p-6">
+        <div className="bg-gradient-to-r from-slate-800/60 to-slate-700/60 backdrop-blur-xl rounded-2xl border border-slate-600/50 p-6 shadow-2xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-900/50 rounded-lg">
+              <div className="p-2 bg-blue-900/30 rounded-lg">
                 <Crown className="w-6 h-6 text-blue-400" />
               </div>
               <div>
@@ -325,6 +359,7 @@ export default function OrganizationManagerDashboard() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -340,32 +375,68 @@ interface MetricCardProps {
 
 function MetricCard({ icon, title, value, subtitle, color, trend }: MetricCardProps) {
   const colorClasses = {
-    blue: 'bg-slate-800 border-blue-500/20',
-    green: 'bg-slate-800 border-green-500/20',
-    orange: 'bg-slate-800 border-orange-500/20',
-    purple: 'bg-slate-800 border-purple-500/20',
+    blue: {
+      bg: 'bg-slate-800/60 backdrop-blur-xl',
+      border: 'border-blue-500/50',
+      iconColor: 'text-blue-400',
+      valueColor: 'text-blue-100',
+      titleColor: 'text-slate-300',
+      subtitleColor: 'text-slate-400',
+      hoverBorder: 'hover:border-blue-400/70',
+      gradient: 'from-blue-500/5 to-purple-500/5'
+    },
+    green: {
+      bg: 'bg-slate-800/60 backdrop-blur-xl',
+      border: 'border-green-500/50',
+      iconColor: 'text-green-400',
+      valueColor: 'text-green-100',
+      titleColor: 'text-slate-300',
+      subtitleColor: 'text-slate-400',
+      hoverBorder: 'hover:border-green-400/70',
+      gradient: 'from-green-500/5 to-blue-500/5'
+    },
+    orange: {
+      bg: 'bg-slate-800/60 backdrop-blur-xl',
+      border: 'border-orange-500/50',
+      iconColor: 'text-orange-400',
+      valueColor: 'text-orange-100',
+      titleColor: 'text-slate-300',
+      subtitleColor: 'text-slate-400',
+      hoverBorder: 'hover:border-orange-400/70',
+      gradient: 'from-orange-500/5 to-yellow-500/5'
+    },
+    purple: {
+      bg: 'bg-slate-800/60 backdrop-blur-xl',
+      border: 'border-purple-500/50',
+      iconColor: 'text-purple-400',
+      valueColor: 'text-purple-100',
+      titleColor: 'text-slate-300',
+      subtitleColor: 'text-slate-400',
+      hoverBorder: 'hover:border-purple-400/70',
+      gradient: 'from-purple-500/5 to-pink-500/5'
+    }
   };
 
-  const iconColors = {
-    blue: 'text-blue-400',
-    green: 'text-green-400',
-    orange: 'text-orange-400',
-    purple: 'text-purple-400',
-  };
+  const classes = colorClasses[color] || colorClasses.blue;
 
   return (
-    <div className={`rounded-xl border p-6 ${colorClasses[color]}`}>
-      <div className="flex items-center justify-between mb-3">
-        <div className={iconColors[color]}>{icon}</div>
-        {trend && (
-          <span className="text-xs text-slate-300 bg-slate-700/60 px-2 py-1 rounded-full">
-            {trend}
-          </span>
-        )}
+    <div className={`group relative rounded-2xl border p-6 shadow-lg overflow-hidden transition-all duration-500 transform hover:scale-105 ${classes.bg} ${classes.border} ${classes.hoverBorder}`}>
+      <div className="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: `linear-gradient(135deg, ${classes.gradient?.split(' ')[0]?.replace('from-', '') || '#3b82f620'} 0%, ${classes.gradient?.split(' ')[2]?.replace('to-', '') || '#1e293b20'} 100%)` }} />
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-current to-transparent transform -translate-x-full group-hover:translate-x-0 transition-transform duration-700" />
+      
+      <div className="relative z-10">
+        <div className="flex items-center justify-between mb-3">
+          <div className={classes.iconColor}>{icon}</div>
+          {trend && (
+            <span className="text-xs text-slate-300 bg-slate-700/60 px-2 py-1 rounded-full">
+              {trend}
+            </span>
+          )}
+        </div>
+        <h3 className={`text-2xl font-bold mb-1 ${classes.valueColor}`}>{value}</h3>
+        <p className={`${classes.titleColor} font-medium text-sm`}>{title}</p>
+        <p className={`text-xs mt-1 ${classes.subtitleColor}`}>{subtitle}</p>
       </div>
-      <h3 className="text-2xl font-bold text-white mb-1">{value}</h3>
-      <p className="text-slate-200 font-medium text-sm">{title}</p>
-      <p className="text-slate-400 text-xs mt-1">{subtitle}</p>
     </div>
   );
 }
@@ -381,28 +452,51 @@ interface ActionCardProps {
 
 function ActionCard({ icon, title, description, to, buttonText, color }: ActionCardProps) {
   const colorClasses = {
-    blue: 'hover:bg-slate-700 border-blue-500/30 text-blue-400',
-    green: 'hover:bg-slate-700 border-green-500/30 text-green-400', 
-    purple: 'hover:bg-slate-700 border-purple-500/30 text-purple-400',
+    blue: {
+      bg: 'bg-slate-800/40 backdrop-blur-xl',
+      border: 'border-blue-500/30',
+      iconColor: 'text-blue-400',
+      titleColor: 'text-white',
+      descColor: 'text-slate-300',
+      hoverBg: 'hover:bg-gradient-to-r hover:from-blue-900/40 hover:to-blue-800/40',
+      hoverBorder: 'hover:border-blue-500/50',
+      buttonBg: 'bg-blue-600 hover:bg-blue-500'
+    },
+    green: {
+      bg: 'bg-slate-800/40 backdrop-blur-xl',
+      border: 'border-green-500/30',
+      iconColor: 'text-green-400',
+      titleColor: 'text-white',
+      descColor: 'text-slate-300',
+      hoverBg: 'hover:bg-gradient-to-r hover:from-green-900/40 hover:to-green-800/40',
+      hoverBorder: 'hover:border-green-500/50',
+      buttonBg: 'bg-green-600 hover:bg-green-500'
+    },
+    purple: {
+      bg: 'bg-slate-800/40 backdrop-blur-xl',
+      border: 'border-purple-500/30',
+      iconColor: 'text-purple-400',
+      titleColor: 'text-white',
+      descColor: 'text-slate-300',
+      hoverBg: 'hover:bg-gradient-to-r hover:from-purple-900/40 hover:to-purple-800/40',
+      hoverBorder: 'hover:border-purple-500/50',
+      buttonBg: 'bg-purple-600 hover:bg-purple-500'
+    }
   };
 
-  const buttonClasses = {
-    blue: 'bg-blue-600 hover:bg-blue-500',
-    green: 'bg-green-600 hover:bg-green-500',
-    purple: 'bg-purple-600 hover:bg-purple-500',
-  };
+  const classes = colorClasses[color] || colorClasses.blue;
 
   return (
-    <div className={`p-6 border-2 border-dashed rounded-lg transition-colors bg-slate-800 ${colorClasses[color]}`}>
+    <div className={`group p-6 border-2 border-dashed rounded-xl transition-all duration-300 ${classes.bg} ${classes.border} ${classes.hoverBg} ${classes.hoverBorder}`}>
       <div className="text-center">
-        <div className="inline-flex items-center justify-center mb-3">
+        <div className={`inline-flex items-center justify-center mb-3 ${classes.iconColor} group-hover:scale-110 transition-transform duration-300`}>
           {icon}
         </div>
-        <h4 className="font-medium text-white mb-2">{title}</h4>
-        <p className="text-sm text-slate-300 mb-4">{description}</p>
+        <h4 className={`font-medium mb-2 ${classes.titleColor} group-hover:text-slate-100 transition-colors`}>{title}</h4>
+        <p className={`text-sm mb-4 ${classes.descColor} group-hover:text-slate-200 transition-colors`}>{description}</p>
         <Link
           to={to}
-          className={`inline-block px-4 py-2 text-white rounded-lg transition-colors text-sm font-medium ${buttonClasses[color]}`}
+          className={`inline-block px-4 py-2 text-white rounded-lg transition-colors text-sm font-medium ${classes.buttonBg} hover:shadow-lg`}
         >
           {buttonText}
         </Link>

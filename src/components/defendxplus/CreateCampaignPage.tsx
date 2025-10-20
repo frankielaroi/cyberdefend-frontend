@@ -197,30 +197,52 @@ export default function CreateCampaignPage() {
   };
 
   const handleLaunchCampaign = async () => {
-    if (!campaignId) {
-      const campaign = await handleCreateCampaign();
-      if (campaign) {
+    try {
+      // Check if campaign has a scheduled date
+      const hasSchedule = formData.scheduledAt && formData.scheduledAt.trim() !== '';
+      
+      if (!campaignId) {
+        const campaign = await handleCreateCampaign();
+        if (campaign) {
+          await launchCampaign({
+            campaignId: campaign.id,
+            launchType: hasSchedule ? 'SCHEDULED' : 'NOW',
+            scheduledAt: hasSchedule ? formData.scheduledAt : undefined
+          }).unwrap();
+          
+          const message = hasSchedule 
+            ? `Campaign scheduled for ${new Date(formData.scheduledAt!).toLocaleString()}!`
+            : 'Campaign launched successfully!';
+          alert(message);
+          navigate('/dashboard/defendxplus/phishing');
+        }
+      } else {
         await launchCampaign({
-          campaignId: campaign.id,
-          launchType: 'NOW'
+          campaignId,
+          launchType: hasSchedule ? 'SCHEDULED' : 'NOW',
+          scheduledAt: hasSchedule ? formData.scheduledAt : undefined
         }).unwrap();
-        navigate('/defendx-plus/campaigns');
+        
+        const message = hasSchedule 
+          ? `Campaign scheduled for ${new Date(formData.scheduledAt!).toLocaleString()}!`
+          : 'Campaign launched successfully!';
+        alert(message);
+        navigate('/dashboard/defendxplus/phishing');
       }
-    } else {
-      await launchCampaign({
-        campaignId,
-        launchType: 'NOW'
-      }).unwrap();
-      navigate('/defendx-plus/campaigns');
+    } catch (error) {
+      console.error('Failed to launch campaign:', error);
+      alert('Failed to launch campaign. Please try again.');
     }
   };
 
   const handleSaveDraft = async () => {
     try {
       await handleCreateCampaign();
-      navigate('/defendx-plus/campaigns');
+      alert('Campaign saved as draft successfully!');
+      navigate('/dashboard/defendxplus/phishing');
     } catch (error) {
-      // Error handling is done in handleCreateCampaign
+      console.error('Failed to save campaign:', error);
+      alert('Failed to save campaign. Please try again.');
     }
   };
 
@@ -601,7 +623,10 @@ export default function CreateCampaignPage() {
                     className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                   >
                     <Play className="w-4 h-4" />
-                    {isLaunching ? 'Launching...' : 'Launch Campaign'}
+                    {isLaunching 
+                      ? (formData.scheduledAt ? 'Scheduling...' : 'Launching...') 
+                      : (formData.scheduledAt ? 'Activate Schedule' : 'Launch Campaign')
+                    }
                   </button>
                 </>
               ) : (

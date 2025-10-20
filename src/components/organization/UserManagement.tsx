@@ -5,18 +5,17 @@ import {
   useInviteMemberMutation,
   useUpdateMemberRoleMutation,
   useRemoveMemberMutation
-} from '../../store/api/organizationApi';
+} from '../../store/api/realOrganizationApi';
 import { 
   UserGroupIcon, 
   PlusIcon, 
   PencilSquareIcon,
   TrashIcon,
-  EyeIcon,
-  EnvelopeIcon,
   MagnifyingGlassIcon,
   ExclamationTriangleIcon,
   CheckIcon,
-  XMarkIcon
+  XMarkIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { UserRole } from '../../types';
 
@@ -37,12 +36,19 @@ export default function UserManagement() {
 
   // API hooks
   const { 
-    data: members = [], 
+    data: membersData, 
     isLoading, 
-    error 
-  } = useGetOrganizationMembersQuery(user?.organization?.id || '', {
-    skip: !user?.organization?.id
-  });
+    error,
+    isFetching,
+    refetch 
+  } = useGetOrganizationMembersQuery(
+    user?.organization?.id ? { orgId: user.organization.id } : { orgId: '' },
+    {
+      skip: !user?.organization?.id
+    }
+  );
+
+  const members = membersData?.data || [];
 
   const [inviteMember, { isLoading: isInviting, error: inviteError }] = useInviteMemberMutation();
   const [updateMemberRole, { isLoading: isUpdating }] = useUpdateMemberRoleMutation();
@@ -89,9 +95,9 @@ export default function UserManagement() {
 
     try {
       await updateMemberRole({
-        organizationId: user.organization.id,
-        memberId,
-        data: { role: newRole }
+        orgId: user.organization.id,
+        userId: memberId,
+        role: newRole
       }).unwrap();
       
       setEditingMemberId(null);
@@ -103,18 +109,11 @@ export default function UserManagement() {
   const handleRemoveUser = async (memberId: string, memberName: string) => {
     if (!user?.organization?.id) return;
 
-    const reason = prompt(
-      `Please provide a reason for removing ${memberName} from the organization:`
-    );
-    
-    if (reason === null) return; // User cancelled
-
-    if (window.confirm(`Are you sure you want to remove ${memberName}?`)) {
+    if (window.confirm(`Are you sure you want to remove ${memberName} from the organization?`)) {
       try {
         await removeMember({
-          organizationId: user.organization.id,
-          memberId,
-          data: { reason }
+          orgId: user.organization.id,
+          userId: memberId
         }).unwrap();
       } catch (error) {
         console.error('Failed to remove member:', error);
@@ -156,26 +155,139 @@ export default function UserManagement() {
   const canManageMembers = user?.role === 'ORG_ADMIN' || user?.role === 'ORG_MANAGER';
   const canRemoveMembers = user?.role === 'ORG_ADMIN';
 
+  // Check if user has organization
+  if (!user?.organization?.id) {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <UserGroupIcon className="h-10 w-10 text-gray-400" />
+              </div>
+              <div className="ml-4">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  User Management
+                </h3>
+                <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                  Manage organization members, roles, and permissions.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* No Organization Message */}
+        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+          <div className="flex">
+            <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400" />
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-yellow-800">
+                No Organization Found
+              </h3>
+              <p className="mt-1 text-sm text-yellow-700">
+                You are not currently associated with an organization. Please contact your administrator or create/join an organization to manage members.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <UserGroupIcon className="h-10 w-10 text-gray-400" />
+              </div>
+              <div className="ml-4">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  User Management
+                </h3>
+                <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                  Manage organization members, roles, and permissions.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Loading State */}
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-4 text-sm text-gray-500">Loading organization members...</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-md p-4">
-        <div className="flex">
-          <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-red-800">
-              Error loading members
-            </h3>
-            <p className="mt-1 text-sm text-red-700">
-              {'data' in error ? (error.data as any)?.message : 'Failed to load organization members'}
-            </p>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <UserGroupIcon className="h-10 w-10 text-gray-400" />
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    User Management
+                  </h3>
+                  <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                    Manage organization members, roles, and permissions.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => refetch()}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                title="Retry loading members"
+              >
+                <ArrowPathIcon className="h-4 w-4 mr-2" />
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Error Display */}
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <div className="flex">
+            <ExclamationTriangleIcon className="h-5 w-5 text-red-400" />
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">
+                Failed to load organization members
+              </h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p>
+                  {error?.status === 401 && 'You are not authorized to view organization members. Please check your permissions.'}
+                  {error?.status === 403 && 'You do not have permission to view organization members.'}
+                  {error?.status === 404 && 'Organization not found. Please check your organization settings.'}
+                  {error?.status >= 500 && 'Server error. Please try again later.'}
+                  {!error?.status && ('data' in error ? (error.data as any)?.message : 'Failed to load organization members')}
+                </p>
+                {!user?.organization?.id && (
+                  <p className="mt-2">
+                    You are not currently associated with an organization. Please contact your administrator.
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -202,13 +314,23 @@ export default function UserManagement() {
               </div>
             </div>
             {canManageMembers && (
-              <button
-                onClick={() => setShowInviteModal(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <PlusIcon className="h-4 w-4 mr-2" />
-                Invite Member
-              </button>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => refetch()}
+                  disabled={isFetching}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                  title="Refresh members list"
+                >
+                  <ArrowPathIcon className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+                </button>
+                <button
+                  onClick={() => setShowInviteModal(true)}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <PlusIcon className="h-4 w-4 mr-2" />
+                  Invite Member
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -237,9 +359,17 @@ export default function UserManagement() {
       {/* Members List */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-            Organization Members ({filteredMembers.length})
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg leading-6 font-medium text-gray-900">
+              Organization Members ({filteredMembers.length})
+            </h3>
+            {isFetching && (
+              <div className="flex items-center text-sm text-gray-500">
+                <ArrowPathIcon className="h-4 w-4 animate-spin mr-2" />
+                Refreshing...
+              </div>
+            )}
+          </div>
           
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -322,11 +452,11 @@ export default function UserManagement() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(member.status)}`}>
-                        {member.status}
+                        {member.status.charAt(0).toUpperCase() + member.status.slice(1)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {member.lastActiveAt ? new Date(member.lastActiveAt).toLocaleDateString() : 'Never'}
+                      {member.lastLogin ? new Date(member.lastLogin).toLocaleDateString() : 'Never'}
                     </td>
                     {(canManageMembers || canRemoveMembers) && (
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

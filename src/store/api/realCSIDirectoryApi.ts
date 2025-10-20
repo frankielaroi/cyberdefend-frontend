@@ -95,20 +95,44 @@ export const csiDirectoryApi = apiSlice.injectEndpoints({
     // Main CSI Directory endpoint
     getCSIDirectory: builder.query<PaginatedResponse<CSIDirectoryEntry>, CSIDirectoryFilters>({
       query: (params = {}) => ({
-        url: '/csi-directory',
+        url: '/csi-directory/public',
         params: {
           page: params.page || 1,
           limit: params.limit || 20,
           ...params,
         },
       }),
+      transformResponse: (response: any) => {
+        // Transform the API response from assessments to directory entries
+        const transformedData = response.data.map((assessment: any) => ({
+          organizationId: assessment.organizationId,
+          name: assessment.organization.name,
+          score: assessment.score,
+          tier: assessment.riskTier === 'LOW' ? 'A' :
+                assessment.riskTier === 'MEDIUM' ? 'C' : 'F',
+          sector: assessment.organization.sector,
+          region: assessment.organization.region,
+          size: assessment.organization.size.toLowerCase(),
+          lastAssessmentDate: assessment.completedAt,
+        }));
+
+        return {
+          data: transformedData,
+          pagination: {
+            total: response.total,
+            page: Math.floor(response.skip / response.take) + 1,
+            limit: response.take,
+            totalPages: Math.ceil(response.total / response.take),
+          },
+        };
+      },
       providesTags: ['CSIDirectory' as const],
     }),
 
     // CSI Leaderboard endpoint
     getCSILeaderboard: builder.query<ApiResponse<LeaderboardEntry[]>, CSILeaderboardParams>({
       query: (params = {}) => ({
-        url: '/csi-directory/leaderboard',
+        url: '/csi-directory/public',
         params: {
           limit: params.limit || 10,
           ...params,
@@ -156,6 +180,30 @@ export const csiDirectoryApi = apiSlice.injectEndpoints({
         url: '/csi-directory/search',
         params: { q, limit },
       }),
+      transformResponse: (response: any) => {
+        // Transform the API response from assessments to directory entries
+        const transformedData = response.data.map((assessment: any) => ({
+          organizationId: assessment.organizationId,
+          name: assessment.organization.name,
+          score: assessment.score,
+          tier: assessment.riskTier === 'LOW' ? 'A' :
+                assessment.riskTier === 'MEDIUM' ? 'C' : 'F',
+          sector: assessment.organization.sector,
+          region: assessment.organization.region,
+          size: assessment.organization.size.toLowerCase(),
+          lastAssessmentDate: assessment.completedAt,
+        }));
+
+        return {
+          data: transformedData,
+          pagination: {
+            total: response.total,
+            page: Math.floor(response.skip / response.take) + 1,
+            limit: response.take,
+            totalPages: Math.ceil(response.total / response.take),
+          },
+        };
+      },
       providesTags: ['CSIDirectory' as const],
     }),
 

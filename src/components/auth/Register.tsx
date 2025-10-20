@@ -5,7 +5,7 @@ import { useCreateOrganizationMutation, useJoinOrganizationMutation, useGetOrgan
 import { useTransferAnonymousAssessmentMutation } from '../../store/api/realDefendXApi';
 import { useAppDispatch } from '../../store/hooks';
 import { setCredentials } from '../../store/slices/authSlice';
-import { clearAnonymousSession } from '../../utils/anonymousSession';
+import { clearAnonymousSession, getAnonymousAssessmentResult } from '../../utils/anonymousSession';
 import { Shield, User, Mail, Phone, Lock, CheckCircle, Users, Building2, Plus, Search, Eye, EyeOff } from 'lucide-react';
 import type { UserRole } from '../../types';
 import { Sector, OrganizationSize } from '../../types';
@@ -28,10 +28,13 @@ const Register: React.FC = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
-  // Get anonymous assessment data from navigation state
+  // Get anonymous assessment data from navigation state or session storage
   const fromAnonymousAssessment = location.state?.fromAnonymousAssessment;
   const anonymousSessionId = location.state?.sessionId;
   const anonymousAssessmentId = location.state?.assessmentId;
+  
+  // Also check session storage for completed anonymous assessment
+  const storedAnonymousResult = getAnonymousAssessmentResult();
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -82,6 +85,34 @@ const Register: React.FC = () => {
   const orgError = createOrgError || joinOrgError;
 
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
+
+  // Helper function to handle anonymous assessment transfer
+  const handleAnonymousAssessmentTransfer = async (userId: string) => {
+    // Check both navigation state and session storage for anonymous assessment data
+    const sessionId = anonymousSessionId || storedAnonymousResult?.sessionId;
+    const assessmentId = anonymousAssessmentId || storedAnonymousResult?.assessmentId;
+
+    if (sessionId && assessmentId && userId) {
+      try {
+        await transferAssessment({
+          sessionId: sessionId,
+          userId: userId,
+        }).unwrap();
+        
+        // Clear anonymous session data
+        clearAnonymousSession();
+        
+        // Navigate to assessment results
+        navigate(`/defendx/results/${assessmentId}`);
+        return true; // Indicate transfer was successful
+      } catch (transferErr: any) {
+        console.error('Failed to transfer assessment:', transferErr);
+        // Continue with normal flow even if transfer fails
+        return false;
+      }
+    }
+    return false;
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type, checked } = e.target as HTMLInputElement;
@@ -212,23 +243,49 @@ const Register: React.FC = () => {
       // Store credentials immediately to enable authenticated API calls
       dispatch(setCredentials(result));
 
+      // If there is a completed anonymous assessment in session storage, transfer it now
+      if (!fromAnonymousAssessment) {
+        const storedResult = getAnonymousAssessmentResult();
+        const sessionToTransfer = storedResult?.sessionId;
+        const assessmentToTransfer = storedResult?.assessmentId;
+        const organizationId = result.user?.organizationId || result.user?.organization?.id;
+        if (sessionToTransfer && assessmentToTransfer && result.user?.id && organizationId) {
+          try {
+            await transferAssessment({
+              sessionId: sessionToTransfer,
+              userId: result.user.id,
+              organizationId: organizationId,
+            }).unwrap();
+            clearAnonymousSession();
+            navigate(`/defendx/results/${assessmentToTransfer}`);
+            return;
+          } catch (transferErr: any) {
+            console.error('Failed to transfer stored anonymous assessment after register:', transferErr);
+            // fall through to normal flow
+          }
+        }
+      }
       // If coming from anonymous assessment, transfer it to the authenticated user
       if (fromAnonymousAssessment && anonymousSessionId && result.user?.id) {
-        try {
-          await transferAssessment({
-            sessionId: anonymousSessionId,
-            userId: result.user.id,
-          }).unwrap();
-          
-          // Clear anonymous session data
-          clearAnonymousSession();
-          
-          // Navigate to assessment results
-          navigate(`/defendx/results/${anonymousAssessmentId}`);
-          return; // Early return to prevent normal flow
-        } catch (transferErr: any) {
-          console.error('Failed to transfer assessment:', transferErr);
-          // Continue with normal flow even if transfer fails
+        const organizationId = result.user?.organizationId || result.user?.organization?.id;
+        if (organizationId) {
+          try {
+            await transferAssessment({
+              sessionId: anonymousSessionId,
+              userId: result.user.id,
+              organizationId: organizationId,
+            }).unwrap();
+            
+            // Clear anonymous session data
+            clearAnonymousSession();
+            
+            // Navigate to assessment results
+            navigate(`/defendx/results/${anonymousAssessmentId}`);
+            return; // Early return to prevent normal flow
+          } catch (transferErr: any) {
+            console.error('Failed to transfer assessment:', transferErr);
+            // Continue with normal flow even if transfer fails
+          }
         }
       }
 
@@ -254,30 +311,58 @@ const Register: React.FC = () => {
     }
 
     try {
+      let organizationId: string | undefined;
+
       if (orgData.action === 'create') {
-        await createOrganization({
+        const createResult = await createOrganization({
           name: orgData.organizationName,
           sector: orgData.industry as any, // Convert string to Sector enum
           email: orgData.email,
           size: orgData.size as any, // Convert string to OrganizationSize enum
           description: orgData.description,
         }).unwrap();
+        organizationId = createResult.data?.id;
       } else if (orgData.action === 'join') {
-        await joinOrganization({
+        const joinResult = await joinOrganization({
           inviteCode: orgData.inviteCode,
         }).unwrap();
+        organizationId = joinResult.data?.organization?.id;
       } else if (orgData.action === 'browse') {
-        await joinOrganization({
+        const joinResult = await joinOrganization({
           organizationId: orgData.selectedOrgId,
         }).unwrap();
+        organizationId = joinResult.data?.organization?.id || orgData.selectedOrgId;
       }
 
       // If coming from anonymous assessment, transfer it after organization setup
-      if (fromAnonymousAssessment && anonymousSessionId && userCredentials?.user?.id) {
+      // First, if registration had stored an anonymous result in session storage (user navigated without explicit state), transfer that
+      const storedResult = getAnonymousAssessmentResult();
+      const sessionToTransfer = storedResult?.sessionId;
+      const assessmentToTransfer = storedResult?.assessmentId;
+
+      if (!fromAnonymousAssessment && sessionToTransfer && assessmentToTransfer && userCredentials?.user?.id && organizationId) {
+        try {
+          await transferAssessment({
+            sessionId: sessionToTransfer,
+            userId: userCredentials.user.id,
+            organizationId: organizationId,
+          }).unwrap();
+          clearAnonymousSession();
+          navigate(`/defendx/results/${assessmentToTransfer}`);
+          return; // Early return
+        } catch (transferErr: any) {
+          console.error('Failed to transfer stored anonymous assessment after org setup:', transferErr);
+          // Continue to normal dashboard flow
+        }
+      }
+
+      // If user explicitly came from anonymous assessment flow with state, transfer using that
+      if (fromAnonymousAssessment && anonymousSessionId && userCredentials?.user?.id && organizationId) {
         try {
           await transferAssessment({
             sessionId: anonymousSessionId,
             userId: userCredentials.user.id,
+            organizationId: organizationId,
           }).unwrap();
           
           // Clear anonymous session data
@@ -448,8 +533,8 @@ const Register: React.FC = () => {
                   
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                      <label htmlFor="firstName" className="block text-sm font-medium text-slate-700 mb-2">
-                        First Name <span className="text-red-500">*</span>
+                      <label htmlFor="firstName" className="block text-sm font-medium text-slate-300 mb-2">
+                        First Name <span className="text-red-400">*</span>
                       </label>
                       <input
                         id="firstName"
@@ -458,19 +543,19 @@ const Register: React.FC = () => {
                         required
                         value={formData.firstName}
                         onChange={handleInputChange}
-                        className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          formErrors.firstName ? 'border-red-300' : 'border-slate-300'
+                        className={`w-full px-4 py-3 bg-slate-700/50 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-slate-400 backdrop-blur-sm transition-all duration-200 ${
+                          formErrors.firstName ? 'border-red-400/50' : 'border-slate-600/50'
                         }`}
                         placeholder="John"
                       />
                       {formErrors.firstName && (
-                        <p className="mt-1 text-sm text-red-600">{formErrors.firstName}</p>
+                        <p className="mt-1 text-sm text-red-400">{formErrors.firstName}</p>
                       )}
                     </div>
                     
                     <div>
-                      <label htmlFor="lastName" className="block text-sm font-medium text-slate-700 mb-2">
-                        Last Name <span className="text-red-500">*</span>
+                      <label htmlFor="lastName" className="block text-sm font-medium text-slate-300 mb-2">
+                        Last Name <span className="text-red-400">*</span>
                       </label>
                       <input
                         id="lastName"
@@ -479,24 +564,24 @@ const Register: React.FC = () => {
                         required
                         value={formData.lastName}
                         onChange={handleInputChange}
-                        className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          formErrors.lastName ? 'border-red-300' : 'border-slate-300'
+                        className={`w-full px-4 py-3 bg-slate-700/50 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-slate-400 backdrop-blur-sm transition-all duration-200 ${
+                          formErrors.lastName ? 'border-red-400/50' : 'border-slate-600/50'
                         }`}
                         placeholder="Doe"
                       />
                       {formErrors.lastName && (
-                        <p className="mt-1 text-sm text-red-600">{formErrors.lastName}</p>
+                        <p className="mt-1 text-sm text-red-400">{formErrors.lastName}</p>
                       )}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
-                        Email Address <span className="text-red-500">*</span>
+                      <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
+                        Email Address <span className="text-red-400">*</span>
                       </label>
                       <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                         <input
                           id="email"
                           name="email"
@@ -504,30 +589,30 @@ const Register: React.FC = () => {
                           required
                           value={formData.email}
                           onChange={handleInputChange}
-                          className={`w-full pl-10 pr-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            formErrors.email ? 'border-red-300' : 'border-slate-300'
+                          className={`w-full pl-12 pr-4 py-3 bg-slate-700/50 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-slate-400 backdrop-blur-sm transition-all duration-200 ${
+                            formErrors.email ? 'border-red-400/50' : 'border-slate-600/50'
                           }`}
                           placeholder="admin@yourcompany.com"
                         />
                       </div>
                       {formErrors.email && (
-                        <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>
+                        <p className="mt-1 text-sm text-red-400">{formErrors.email}</p>
                       )}
                     </div>
 
                     <div>
-                      <label htmlFor="phone" className="block text-sm font-medium text-slate-700 mb-2">
+                      <label htmlFor="phone" className="block text-sm font-medium text-slate-300 mb-2">
                         Phone Number
                       </label>
                       <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                         <input
                           id="phone"
                           name="phone"
                           type="tel"
                           value={formData.phone}
                           onChange={handleInputChange}
-                          className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full pl-12 pr-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-slate-400 backdrop-blur-sm transition-all duration-200"
                           placeholder="+233 XX XXX XXXX"
                         />
                       </div>
@@ -535,85 +620,110 @@ const Register: React.FC = () => {
                   </div>
 
                   <div>
-                    <label htmlFor="role" className="block text-sm font-medium text-slate-700 mb-2">
-                      Role <span className="text-red-500">*</span>
+                    <label htmlFor="role" className="block text-sm font-medium text-slate-300 mb-2">
+                      Role <span className="text-red-400">*</span>
                     </label>
                     <div className="relative">
-                      <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 z-10" />
                       <select
                         id="role"
                         name="role"
                         value={formData.role}
                         onChange={handleInputChange}
-                        className={`w-full pl-10 pr-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white ${
-                          formErrors.role ? 'border-red-300' : 'border-slate-300'
+                        className={`w-full pl-12 pr-4 py-3 bg-slate-700/50 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white appearance-none backdrop-blur-sm transition-all duration-200 ${
+                          formErrors.role ? 'border-red-400/50' : 'border-slate-600/50'
                         }`}
                       >
-                        <option value="ORG_ADMIN">Organization Administrator</option>
-                        <option value="ORG_MANAGER">Organization Manager</option>
-                        <option value="END_USER">End User</option>
+                        <option value="ORG_ADMIN" className="bg-slate-700 text-white">Organization Administrator</option>
+                        <option value="ORG_MANAGER" className="bg-slate-700 text-white">Organization Manager</option>
+                        <option value="END_USER" className="bg-slate-700 text-white">End User</option>
                       </select>
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
                     </div>
                     {formErrors.role && (
-                      <p className="mt-1 text-sm text-red-600">{formErrors.role}</p>
+                      <p className="mt-1 text-sm text-red-400">{formErrors.role}</p>
                     )}
-                    <div className="mt-2 text-xs text-slate-500 space-y-1">
-                      <p><strong>Admin:</strong> Full organization management access</p>
-                      <p><strong>Manager:</strong> Can manage users and view reports</p>
-                      <p><strong>End User:</strong> Basic user access</p>
+                    <div className="mt-3 p-3 bg-slate-700/30 rounded-lg border border-slate-600/30 backdrop-blur-sm">
+                      <div className="text-xs text-slate-400 space-y-1">
+                        <p><strong className="text-slate-300">Admin:</strong> Full organization management access</p>
+                        <p><strong className="text-slate-300">Manager:</strong> Can manage users and view reports</p>
+                        <p><strong className="text-slate-300">End User:</strong> Basic user access</p>
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Password Section */}
                 <div className="space-y-6">
-                  <h3 className="text-lg font-semibold text-slate-900 flex items-center">
-                    <Lock className="w-5 h-5 mr-2 text-blue-600" />
+                  <h3 className="text-lg font-semibold text-white flex items-center">
+                    <Lock className="w-5 h-5 mr-2 text-purple-400" />
                     Account Security
                   </h3>
-                  
+
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                      <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
-                        Password <span className="text-red-500">*</span>
+                      <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
+                        Password <span className="text-red-400">*</span>
                       </label>
-                      <input
-                        id="password"
-                        name="password"
-                        type="password"
-                        required
-                        minLength={8}
-                        value={formData.password}
-                        onChange={handleInputChange}
-                        className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          formErrors.password ? 'border-red-300' : 'border-slate-300'
-                        }`}
-                        placeholder="••••••••"
-                      />
+                      <div className="relative">
+                        <input
+                          id="password"
+                          name="password"
+                          type={showPassword ? "text" : "password"}
+                          required
+                          minLength={8}
+                          value={formData.password}
+                          onChange={handleInputChange}
+                          className={`w-full px-4 pr-12 py-3 bg-slate-700/50 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-slate-400 backdrop-blur-sm transition-all duration-200 ${
+                            formErrors.password ? 'border-red-400/50' : 'border-slate-600/50'
+                          }`}
+                          placeholder="••••••••"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors"
+                        >
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
                       {formErrors.password && (
-                        <p className="mt-1 text-sm text-red-600">{formErrors.password}</p>
+                        <p className="mt-1 text-sm text-red-400">{formErrors.password}</p>
                       )}
-                      <p className="mt-1 text-xs text-slate-500">Minimum 8 characters</p>
+                      <p className="mt-2 text-xs text-slate-400">Minimum 8 characters</p>
                     </div>
 
                     <div>
-                      <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-2">
-                        Confirm Password <span className="text-red-500">*</span>
+                      <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-300 mb-2">
+                        Confirm Password <span className="text-red-400">*</span>
                       </label>
-                      <input
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        type="password"
-                        required
-                        value={formData.confirmPassword}
-                        onChange={handleInputChange}
-                        className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          formErrors.confirmPassword ? 'border-red-300' : 'border-slate-300'
-                        }`}
-                        placeholder="••••••••"
-                      />
+                      <div className="relative">
+                        <input
+                          id="confirmPassword"
+                          name="confirmPassword"
+                          type={showConfirmPassword ? "text" : "password"}
+                          required
+                          value={formData.confirmPassword}
+                          onChange={handleInputChange}
+                          className={`w-full px-4 pr-12 py-3 bg-slate-700/50 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-slate-400 backdrop-blur-sm transition-all duration-200 ${
+                            formErrors.confirmPassword ? 'border-red-400/50' : 'border-slate-600/50'
+                          }`}
+                          placeholder="••••••••"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300 transition-colors"
+                        >
+                          {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
                       {formErrors.confirmPassword && (
-                        <p className="mt-1 text-sm text-red-600">{formErrors.confirmPassword}</p>
+                        <p className="mt-1 text-sm text-red-400">{formErrors.confirmPassword}</p>
                       )}
                     </div>
                   </div>
@@ -621,45 +731,45 @@ const Register: React.FC = () => {
 
                 {/* Terms and Conditions */}
                 <div className="space-y-4">
-                  <div className="flex items-start">
+                  <div className="flex items-start p-4 bg-slate-700/30 rounded-xl border border-slate-600/30 backdrop-blur-sm">
                     <input
                       id="acceptTerms"
                       name="acceptTerms"
                       type="checkbox"
                       checked={formData.acceptTerms}
                       onChange={handleInputChange}
-                      className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+                      className="mt-1 h-4 w-4 text-purple-500 focus:ring-purple-500 border-slate-600 rounded bg-slate-700/50"
                     />
-                    <label htmlFor="acceptTerms" className="ml-3 text-sm text-slate-700">
+                    <label htmlFor="acceptTerms" className="ml-3 text-sm text-slate-300 leading-relaxed">
                       I agree to the{' '}
-                      <Link to="/terms" className="text-blue-600 hover:text-blue-700 font-medium">
+                      <Link to="/terms" className="text-purple-400 hover:text-purple-300 font-medium transition-colors underline underline-offset-2">
                         Terms of Service
                       </Link>
                       {' '}and{' '}
-                      <Link to="/privacy" className="text-blue-600 hover:text-blue-700 font-medium">
+                      <Link to="/privacy" className="text-purple-400 hover:text-purple-300 font-medium transition-colors underline underline-offset-2">
                         Privacy Policy
                       </Link>
-                      <span className="text-red-500"> *</span>
+                      <span className="text-red-400 ml-1">*</span>
                     </label>
                   </div>
                   {formErrors.acceptTerms && (
-                    <p className="text-sm text-red-600">{formErrors.acceptTerms}</p>
+                    <p className="text-sm text-red-400">{formErrors.acceptTerms}</p>
                   )}
                 </div>
 
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex items-center justify-center"
+                  className="w-full py-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl font-semibold transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-purple-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none transform hover:scale-[1.02] active:scale-[0.98]"
                 >
                   {isLoading ? (
                     <>
-                      <div className="w-5 h-5 border-2 border-white border-r-transparent rounded-full animate-spin mr-2"></div>
+                      <div className="w-5 h-5 border-2 border-white border-r-transparent rounded-full animate-spin mr-3"></div>
                       Creating Account...
                     </>
                   ) : (
                     <>
-                      <User className="w-5 h-5 mr-2" />
+                      <User className="w-5 h-5 mr-3" />
                       Continue to Organization Setup
                     </>
                   )}
@@ -671,17 +781,20 @@ const Register: React.FC = () => {
               <>
                 {/* Organization Setup Form */}
                 <div className="space-y-6">
-                  <h3 className="text-lg font-semibold text-slate-900 flex items-center">
-                    <Building2 className="w-5 h-5 mr-2 text-blue-600" />
+                  <h3 className="text-lg font-semibold text-white flex items-center">
+                    <Building2 className="w-5 h-5 mr-2 text-purple-400" />
                     Organization Setup
                   </h3>
 
                   {/* Action Selection */}
                   <div className="space-y-4">
-                    <p className="text-sm text-slate-600">Choose how you want to proceed:</p>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                      <label className={`relative cursor-pointer p-4 rounded-lg border-2 transition-colors ${
-                        orgData.action === 'create' ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-white'
+                    <p className="text-sm text-slate-400">Choose how you want to proceed:</p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <label className={`relative cursor-pointer p-6 rounded-xl border-2 transition-all duration-200 backdrop-blur-sm ${
+                        orgData.action === 'create'
+                          ? 'border-purple-400 bg-purple-500/10 shadow-lg shadow-purple-500/20'
+                          : 'border-slate-600/50 bg-slate-700/30 hover:border-slate-500/70 hover:bg-slate-700/50'
                       }`}>
                         <input
                           type="radio"
@@ -692,14 +805,16 @@ const Register: React.FC = () => {
                           className="sr-only"
                         />
                         <div className="text-center">
-                          <Plus className="w-6 h-6 mx-auto mb-2 text-blue-600" />
-                          <h4 className="font-semibold text-sm text-slate-900">Create New</h4>
-                          <p className="text-xs text-slate-600 mt-1">Start fresh organization</p>
+                          <Plus className={`w-8 h-8 mx-auto mb-3 ${orgData.action === 'create' ? 'text-purple-400' : 'text-slate-400'}`} />
+                          <h4 className={`font-semibold text-sm mb-2 ${orgData.action === 'create' ? 'text-white' : 'text-slate-300'}`}>Create Organization</h4>
+                          <p className="text-xs text-slate-400">Create a new organization for your team</p>
                         </div>
                       </label>
 
-                      <label className={`relative cursor-pointer p-4 rounded-lg border-2 transition-colors ${
-                        orgData.action === 'browse' ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-white'
+                      <label className={`relative cursor-pointer p-6 rounded-xl border-2 transition-all duration-200 backdrop-blur-sm ${
+                        orgData.action === 'browse'
+                          ? 'border-purple-400 bg-purple-500/10 shadow-lg shadow-purple-500/20'
+                          : 'border-slate-600/50 bg-slate-700/30 hover:border-slate-500/70 hover:bg-slate-700/50'
                       }`}>
                         <input
                           type="radio"
@@ -710,14 +825,16 @@ const Register: React.FC = () => {
                           className="sr-only"
                         />
                         <div className="text-center">
-                          <Search className="w-6 h-6 mx-auto mb-2 text-blue-600" />
-                          <h4 className="font-semibold text-sm text-slate-900">Browse & Join</h4>
-                          <p className="text-xs text-slate-600 mt-1">Find public organizations</p>
+                          <Search className={`w-8 h-8 mx-auto mb-3 ${orgData.action === 'browse' ? 'text-purple-400' : 'text-slate-400'}`} />
+                          <h4 className={`font-semibold text-sm mb-2 ${orgData.action === 'browse' ? 'text-white' : 'text-slate-300'}`}>Browse & Join</h4>
+                          <p className="text-xs text-slate-400">Find public organizations</p>
                         </div>
                       </label>
 
-                      <label className={`relative cursor-pointer p-4 rounded-lg border-2 transition-colors ${
-                        orgData.action === 'join' ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-white'
+                      <label className={`relative cursor-pointer p-6 rounded-xl border-2 transition-all duration-200 backdrop-blur-sm ${
+                        orgData.action === 'join'
+                          ? 'border-purple-400 bg-purple-500/10 shadow-lg shadow-purple-500/20'
+                          : 'border-slate-600/50 bg-slate-700/30 hover:border-slate-500/70 hover:bg-slate-700/50'
                       }`}>
                         <input
                           type="radio"
@@ -728,9 +845,9 @@ const Register: React.FC = () => {
                           className="sr-only"
                         />
                         <div className="text-center">
-                          <Users className="w-6 h-6 mx-auto mb-2 text-blue-600" />
-                          <h4 className="font-semibold text-sm text-slate-900">Use Invite</h4>
-                          <p className="text-xs text-slate-600 mt-1">Have an invite code</p>
+                          <Users className={`w-8 h-8 mx-auto mb-3 ${orgData.action === 'join' ? 'text-purple-400' : 'text-slate-400'}`} />
+                          <h4 className={`font-semibold text-sm mb-2 ${orgData.action === 'join' ? 'text-white' : 'text-slate-300'}`}>Use Invite</h4>
+                          <p className="text-xs text-slate-400">Have an invite code</p>
                         </div>
                       </label>
                     </div>
@@ -740,8 +857,8 @@ const Register: React.FC = () => {
                   {orgData.action === 'create' && (
                     <div className="space-y-4">
                       <div>
-                        <label htmlFor="organizationName" className="block text-sm font-medium text-slate-700 mb-2">
-                          Organization Name <span className="text-red-500">*</span>
+                        <label htmlFor="organizationName" className="block text-sm font-medium text-slate-300 mb-2">
+                          Organization Name <span className="text-red-400">*</span>
                         </label>
                         <input
                           id="organizationName"
@@ -750,19 +867,19 @@ const Register: React.FC = () => {
                           required
                           value={orgData.organizationName}
                           onChange={handleOrgInputChange}
-                          className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            formErrors.organizationName ? 'border-red-300' : 'border-slate-300'
+                          className={`w-full px-4 py-3 bg-slate-700/50 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-slate-400 backdrop-blur-sm transition-all duration-200 ${
+                            formErrors.organizationName ? 'border-red-400/50' : 'border-slate-600/50'
                           }`}
                           placeholder="Your Company Name"
                         />
                         {formErrors.organizationName && (
-                          <p className="mt-1 text-sm text-red-600">{formErrors.organizationName}</p>
+                          <p className="mt-1 text-sm text-red-400">{formErrors.organizationName}</p>
                         )}
                       </div>
 
                       <div>
-                        <label htmlFor="orgEmail" className="block text-sm font-medium text-slate-700 mb-2">
-                          Institutional Email <span className="text-red-500">*</span>
+                        <label htmlFor="orgEmail" className="block text-sm font-medium text-slate-300 mb-2">
+                          Institutional Email <span className="text-red-400">*</span>
                         </label>
                         <input
                           id="orgEmail"
@@ -771,78 +888,92 @@ const Register: React.FC = () => {
                           required
                           value={orgData.email}
                           onChange={handleOrgInputChange}
-                          className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            formErrors.orgEmail ? 'border-red-300' : 'border-slate-300'
+                          className={`w-full px-4 py-3 bg-slate-700/50 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-slate-400 backdrop-blur-sm transition-all duration-200 ${
+                            formErrors.orgEmail ? 'border-red-400/50' : 'border-slate-600/50'
                           }`}
                           placeholder="contact@yourcompany.com"
                         />
                         {formErrors.orgEmail && (
-                          <p className="mt-1 text-sm text-red-600">{formErrors.orgEmail}</p>
+                          <p className="mt-1 text-sm text-red-400">{formErrors.orgEmail}</p>
                         )}
                       </div>
 
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
-                          <label htmlFor="industry" className="block text-sm font-medium text-slate-700 mb-2">
-                            Industry <span className="text-red-500">*</span>
+                          <label htmlFor="industry" className="block text-sm font-medium text-slate-300 mb-2">
+                            Industry <span className="text-red-400">*</span>
                           </label>
-                          <select
-                            id="industry"
-                            name="industry"
-                            value={orgData.industry}
-                            onChange={handleOrgInputChange}
-                            className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white ${
-                              formErrors.industry ? 'border-red-300' : 'border-slate-300'
-                            }`}
-                          >
-                            <option value="">Select Industry</option>
-                            <option value={Sector.BANKING}>Banking</option>
-                            <option value={Sector.TELECOMMUNICATIONS}>Telecommunications</option>
-                            <option value={Sector.INSURANCE}>Insurance</option>
-                            <option value={Sector.GOVERNMENT}>Government</option>
-                            <option value={Sector.HEALTHCARE}>Healthcare</option>
-                            <option value={Sector.EDUCATION}>Education</option>
-                            <option value={Sector.ENERGY}>Energy</option>
-                            <option value={Sector.MANUFACTURING}>Manufacturing</option>
-                            <option value={Sector.RETAIL}>Retail</option>
-                            <option value={Sector.LOGISTICS}>Logistics</option>
-                            <option value={Sector.TECHNOLOGY}>Technology</option>
-                            <option value={Sector.NGO}>NGO</option>
-                            <option value={Sector.OTHER}>Other</option>
-                          </select>
+                          <div className="relative">
+                            <select
+                              id="industry"
+                              name="industry"
+                              value={orgData.industry}
+                              onChange={handleOrgInputChange}
+                              className={`w-full px-4 py-3 bg-slate-700/50 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white appearance-none backdrop-blur-sm transition-all duration-200 ${
+                                formErrors.industry ? 'border-red-400/50' : 'border-slate-600/50'
+                              }`}
+                            >
+                              <option value="" className="bg-slate-700 text-white">Select Industry</option>
+                              <option value={Sector.BANKING} className="bg-slate-700 text-white">Banking</option>
+                              <option value={Sector.TELECOMMUNICATIONS} className="bg-slate-700 text-white">Telecommunications</option>
+                              <option value={Sector.INSURANCE} className="bg-slate-700 text-white">Insurance</option>
+                              <option value={Sector.GOVERNMENT} className="bg-slate-700 text-white">Government</option>
+                              <option value={Sector.HEALTHCARE} className="bg-slate-700 text-white">Healthcare</option>
+                              <option value={Sector.EDUCATION} className="bg-slate-700 text-white">Education</option>
+                              <option value={Sector.ENERGY} className="bg-slate-700 text-white">Energy</option>
+                              <option value={Sector.MANUFACTURING} className="bg-slate-700 text-white">Manufacturing</option>
+                              <option value={Sector.RETAIL} className="bg-slate-700 text-white">Retail</option>
+                              <option value={Sector.LOGISTICS} className="bg-slate-700 text-white">Logistics</option>
+                              <option value={Sector.TECHNOLOGY} className="bg-slate-700 text-white">Technology</option>
+                              <option value={Sector.NGO} className="bg-slate-700 text-white">NGO</option>
+                              <option value={Sector.OTHER} className="bg-slate-700 text-white">Other</option>
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                              <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </div>
+                          </div>
                           {formErrors.industry && (
-                            <p className="mt-1 text-sm text-red-600">{formErrors.industry}</p>
+                            <p className="mt-1 text-sm text-red-400">{formErrors.industry}</p>
                           )}
                         </div>
 
                         <div>
-                          <label htmlFor="size" className="block text-sm font-medium text-slate-700 mb-2">
-                            Organization Size <span className="text-red-500">*</span>
+                          <label htmlFor="size" className="block text-sm font-medium text-slate-300 mb-2">
+                            Organization Size <span className="text-red-400">*</span>
                           </label>
-                          <select
-                            id="size"
-                            name="size"
-                            value={orgData.size}
-                            onChange={handleOrgInputChange}
-                            className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white ${
-                              formErrors.size ? 'border-red-300' : 'border-slate-300'
-                            }`}
-                          >
-                            <option value="">Select Size</option>
-                            <option value={OrganizationSize.MICRO}>1-5 employees</option>
-                            <option value={OrganizationSize.SMALL}>6-50 employees</option>
-                            <option value={OrganizationSize.MEDIUM}>51-250 employees</option>
-                            <option value={OrganizationSize.LARGE}>251-1000 employees</option>
-                            <option value={OrganizationSize.ENTERPRISE}>1000+ employees</option>
-                          </select>
+                          <div className="relative">
+                            <select
+                              id="size"
+                              name="size"
+                              value={orgData.size}
+                              onChange={handleOrgInputChange}
+                              className={`w-full px-4 py-3 bg-slate-700/50 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white appearance-none backdrop-blur-sm transition-all duration-200 ${
+                                formErrors.size ? 'border-red-400/50' : 'border-slate-600/50'
+                              }`}
+                            >
+                              <option value="" className="bg-slate-700 text-white">Select Size</option>
+                              <option value={OrganizationSize.MICRO} className="bg-slate-700 text-white">1-5 employees</option>
+                              <option value={OrganizationSize.SMALL} className="bg-slate-700 text-white">6-50 employees</option>
+                              <option value={OrganizationSize.MEDIUM} className="bg-slate-700 text-white">51-250 employees</option>
+                              <option value={OrganizationSize.LARGE} className="bg-slate-700 text-white">251-1000 employees</option>
+                              <option value={OrganizationSize.ENTERPRISE} className="bg-slate-700 text-white">1000+ employees</option>
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                              <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </div>
+                          </div>
                           {formErrors.size && (
-                            <p className="mt-1 text-sm text-red-600">{formErrors.size}</p>
+                            <p className="mt-1 text-sm text-red-400">{formErrors.size}</p>
                           )}
                         </div>
                       </div>
 
                       <div>
-                        <label htmlFor="description" className="block text-sm font-medium text-slate-700 mb-2">
+                        <label htmlFor="description" className="block text-sm font-medium text-slate-300 mb-2">
                           Description (Optional)
                         </label>
                         <textarea
@@ -851,7 +982,7 @@ const Register: React.FC = () => {
                           rows={3}
                           value={orgData.description}
                           onChange={handleOrgInputChange}
-                          className="w-full px-3 py-3 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                          className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-slate-400 backdrop-blur-sm transition-all duration-200 resize-none"
                           placeholder="Brief description of your organization..."
                         />
                       </div>
@@ -866,14 +997,14 @@ const Register: React.FC = () => {
                           Search Organizations
                         </label>
                         <div className="relative">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                           <input
                             id="searchQuery"
                             name="searchQuery"
                             type="text"
                             value={orgData.searchQuery}
                             onChange={handleOrgInputChange}
-                            className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full pl-12 pr-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-slate-400 backdrop-blur-sm transition-all duration-200"
                             placeholder="Search by organization name..."
                           />
                         </div>
@@ -881,21 +1012,21 @@ const Register: React.FC = () => {
 
                       {/* Organization List */}
                       <div className="space-y-3">
-                        <h4 className="text-sm font-medium text-slate-700">Available Organizations</h4>
+                        <h4 className="text-sm font-medium text-slate-300">Available Organizations</h4>
                         {isLoadingOrgs ? (
-                          <div className="text-center py-4">
-                            <div className="inline-block w-6 h-6 border-2 border-blue-500 border-r-transparent rounded-full animate-spin"></div>
-                            <p className="text-sm text-slate-600 mt-2">Loading organizations...</p>
+                          <div className="text-center py-6">
+                            <div className="inline-block w-6 h-6 border-2 border-purple-500 border-r-transparent rounded-full animate-spin"></div>
+                            <p className="text-sm text-slate-400 mt-2">Loading organizations...</p>
                           </div>
                         ) : publicOrgs?.data?.length ? (
                           <div className="max-h-48 overflow-y-auto space-y-2">
                             {publicOrgs.data.map((org) => (
                               <label
                                 key={org.id}
-                                className={`block p-3 border rounded-lg cursor-pointer transition-colors ${
+                                className={`block p-4 border rounded-xl cursor-pointer transition-all duration-200 backdrop-blur-sm ${
                                   orgData.selectedOrgId === org.id
-                                    ? 'border-blue-500 bg-blue-50'
-                                    : 'border-slate-200 hover:border-slate-300'
+                                    ? 'border-purple-400 bg-purple-500/10 shadow-lg shadow-purple-500/20'
+                                    : 'border-slate-600/50 bg-slate-700/30 hover:border-slate-500/70 hover:bg-slate-700/50'
                                 }`}
                               >
                                 <input
@@ -908,8 +1039,8 @@ const Register: React.FC = () => {
                                 />
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1">
-                                    <h5 className="font-medium text-slate-900">{org.name}</h5>
-                                    <p className="text-sm text-slate-600">{org.sector} • {org.size}</p>
+                                    <h5 className={`font-medium mb-1 ${orgData.selectedOrgId === org.id ? 'text-white' : 'text-slate-300'}`}>{org.name}</h5>
+                                    <p className="text-sm text-slate-400">{org.sector} • {org.size}</p>
                                     {org.description && (
                                       <p className="text-xs text-slate-500 mt-1 line-clamp-2">{org.description}</p>
                                     )}
@@ -930,7 +1061,7 @@ const Register: React.FC = () => {
                           </div>
                         )}
                         {formErrors.selectedOrgId && (
-                          <p className="text-sm text-red-600">{formErrors.selectedOrgId}</p>
+                          <p className="text-sm text-red-400">{formErrors.selectedOrgId}</p>
                         )}
                       </div>
                     </div>
@@ -940,8 +1071,8 @@ const Register: React.FC = () => {
                   {orgData.action === 'join' && (
                     <div className="space-y-4">
                       <div>
-                        <label htmlFor="inviteCode" className="block text-sm font-medium text-slate-700 mb-2">
-                          Invitation Code <span className="text-red-500">*</span>
+                        <label htmlFor="inviteCode" className="block text-sm font-medium text-slate-300 mb-2">
+                          Invitation Code <span className="text-red-400">*</span>
                         </label>
                         <input
                           id="inviteCode"
@@ -950,15 +1081,15 @@ const Register: React.FC = () => {
                           required
                           value={orgData.inviteCode}
                           onChange={handleOrgInputChange}
-                          className={`w-full px-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                            formErrors.inviteCode ? 'border-red-300' : 'border-slate-300'
+                          className={`w-full px-4 py-3 bg-slate-700/50 border rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-white placeholder-slate-400 backdrop-blur-sm transition-all duration-200 ${
+                            formErrors.inviteCode ? 'border-red-400/50' : 'border-slate-600/50'
                           }`}
                           placeholder="Enter your invitation code"
                         />
                         {formErrors.inviteCode && (
-                          <p className="mt-1 text-sm text-red-600">{formErrors.inviteCode}</p>
+                          <p className="mt-1 text-sm text-red-400">{formErrors.inviteCode}</p>
                         )}
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-2 text-xs text-slate-400">
                           Your organization administrator should provide you with this code
                         </p>
                       </div>
@@ -966,50 +1097,53 @@ const Register: React.FC = () => {
                   )}
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div className="flex space-x-4">
                     <button
                       type="button"
                       onClick={() => setCurrentStep('account')}
-                      className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-medium transition-colors"
+                      className="flex-1 py-3 bg-slate-700/50 text-slate-300 rounded-xl hover:bg-slate-600/50 font-medium transition-all duration-200 backdrop-blur-sm border border-slate-600/50 hover:border-slate-500/70"
                     >
                       Back to Account
                     </button>
                     <button
                       type="submit"
                       disabled={isOrgLoading}
-                      className="flex-1 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex items-center justify-center"
+                      className="flex-1 py-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl font-semibold transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-purple-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none transform hover:scale-[1.02] active:scale-[0.98]"
                     >
                       {isOrgLoading ? (
-                        'Setting up...'
+                        <>
+                          <div className="w-5 h-5 border-2 border-white border-r-transparent rounded-full animate-spin mr-3"></div>
+                          Setting up...
+                        </>
                       ) : (
                         <>
-                          <CheckCircle className="w-5 h-5 mr-2" />
+                          <CheckCircle className="w-5 h-5 mr-3" />
                           Complete Setup
                         </>
                       )}
                     </button>
                   </div>
-                  
+
                   {/* Skip Organization Button */}
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-slate-200" />
+                      <div className="w-full border-t border-slate-600/50" />
                     </div>
                     <div className="relative flex justify-center text-sm">
-                      <span className="px-2 bg-white text-slate-500">or</span>
+                      <span className="px-3 bg-slate-800/80 text-slate-400 rounded-full backdrop-blur-sm">or</span>
                     </div>
                   </div>
-                  
+
                   <div className="text-center">
                     <button
                       type="button"
                       onClick={handleSkipOrganization}
-                      className="inline-flex items-center px-4 py-2 text-slate-600 hover:text-blue-600 text-sm font-medium transition-colors border border-slate-200 rounded-lg hover:border-blue-200 hover:bg-blue-50"
+                      className="inline-flex items-center px-6 py-3 text-slate-400 hover:text-purple-400 text-sm font-medium transition-all duration-200 border border-slate-600/50 rounded-xl hover:border-purple-400/50 hover:bg-purple-500/10 backdrop-blur-sm"
                     >
                       <span>Skip for now - I'll set up my organization later</span>
                     </button>
-                    <p className="text-xs text-slate-500 mt-2">
+                    <p className="text-xs text-slate-500 mt-3">
                       You can always create or join an organization from your dashboard
                     </p>
                   </div>
@@ -1019,9 +1153,9 @@ const Register: React.FC = () => {
 
             {currentStep === 'account' && (
               <div className="text-center">
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-slate-400">
                   Already have an account?{' '}
-                  <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
+                  <Link to="/login" className="font-medium text-purple-400 hover:text-purple-300 transition-colors underline underline-offset-2">
                     Sign in
                   </Link>
                 </p>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Plus, CreditCard as Edit, Trash2, Save, X } from 'lucide-react';
-import type { Question, CreateQuestionDto, UpdateQuestionDto } from '../../types';
+import type { CreateQuestionDto, UpdateQuestionDto } from '../../types';
 import { 
   useGetQuestionsQuery, 
   useGetCategoriesQuery,
@@ -10,26 +10,34 @@ import {
 } from '../../store/api/adminApi';
 
 export default function QuestionManager() {
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
   // API queries and mutations
-  const { data: questionsData, isLoading, error } = useGetQuestionsQuery({
-    page: currentPage,
-    limit: 50,
-    category: selectedCategory || undefined,
-  });
+  const { data: questionsData, isLoading, error } = useGetQuestionsQuery({});
   
   const { data: categoriesData } = useGetCategoriesQuery();
   const [createQuestion] = useCreateQuestionMutation();
   const [updateQuestion] = useUpdateQuestionMutation();
   const [deleteQuestion] = useDeleteQuestionMutation();
 
-  const questions = questionsData?.data || [];
-  const categories = categoriesData?.data || [];
-  const categoryNames = categories.map(cat => cat.name);
+  // Extract data from API responses
+  const allCategories = categoriesData?.categories || [];
+  const categoriesWithQuestions = questionsData?.categories || [];
+  
+  // Flatten all questions from all categories
+  const allQuestions = categoriesWithQuestions.flatMap(cat => 
+    cat.questions.map(q => ({
+      ...q,
+      category: cat.category,
+    }))
+  );
+
+  // Filter questions by selected category
+  const filteredQuestions = selectedCategoryId
+    ? allQuestions.filter(q => q.category.id === selectedCategoryId)
+    : allQuestions;
 
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this question?')) {
@@ -81,22 +89,22 @@ export default function QuestionManager() {
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <div className="flex gap-2 overflow-x-auto pb-2">
           <button
-            onClick={() => setSelectedCategory('')}
+            onClick={() => setSelectedCategoryId('')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
-              selectedCategory === '' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              selectedCategoryId === '' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
-            All Categories
+            All Categories ({allQuestions.length})
           </button>
-          {categoryNames.map((cat) => (
+          {allCategories.map((cat) => (
             <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
+              key={cat.id}
+              onClick={() => setSelectedCategoryId(cat.id)}
               className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
-                selectedCategory === cat ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                selectedCategoryId === cat.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              {cat}
+              {cat.name} ({cat.questionCount})
             </button>
           ))}
         </div>
@@ -104,24 +112,9 @@ export default function QuestionManager() {
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
         <div className="p-6 border-b border-slate-200 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-slate-900">Questions ({questions.length})</h2>
-          {questionsData?.pagination && questionsData.pagination.totalPages > 1 && (
-            <div className="flex gap-2">
-              {Array.from({ length: questionsData.pagination.totalPages }, (_, i) => (
-                <button
-                  key={i + 1}
-                  onClick={() => setCurrentPage(i + 1)}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    currentPage === i + 1
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  {i + 1}
-                </button>
-              ))}
-            </div>
-          )}
+          <h2 className="text-xl font-bold text-slate-900">
+            Questions ({filteredQuestions.length} of {questionsData?.total || 0})
+          </h2>
         </div>
         <div className="divide-y divide-slate-200">
           {isLoading ? (
@@ -130,12 +123,12 @@ export default function QuestionManager() {
             <div className="p-8 text-center text-red-600">
               Failed to load questions. Please try again.
             </div>
-          ) : questions.length === 0 ? (
+          ) : filteredQuestions.length === 0 ? (
             <div className="p-8 text-center text-slate-600">
               No questions found. Add your first question to get started.
             </div>
           ) : (
-            questions.map((question) => (
+            filteredQuestions.map((question) => (
               <QuestionRow
                 key={question.id}
                 question={question}
@@ -154,7 +147,7 @@ export default function QuestionManager() {
         <CreateQuestionModal
           onClose={() => setShowCreate(false)}
           onCreate={handleCreate}
-          categories={categoryNames}
+          categories={allCategories}
         />
       )}
     </div>
@@ -169,14 +162,18 @@ function QuestionRow({
   onSave,
   onDelete,
 }: {
-  question: Question;
+  question: any; // Using any for now since it has category object attached
   isEditing: boolean;
   onEdit: () => void;
   onCancelEdit: () => void;
   onSave: (data: UpdateQuestionDto) => void;
   onDelete: () => void;
 }) {
-  const [editData, setEditData] = useState(question);
+  const [editData, setEditData] = useState({
+    text: question.text,
+    weight: question.weight,
+    description: question.description,
+  });
 
   if (isEditing) {
     return (
@@ -185,6 +182,14 @@ function QuestionRow({
           value={editData.text}
           onChange={(e) => setEditData({ ...editData, text: e.target.value })}
           className="w-full px-4 py-2 border border-slate-300 rounded-lg mb-3"
+          placeholder="Question text"
+        />
+        <textarea
+          value={editData.description || ''}
+          onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+          className="w-full px-4 py-2 border border-slate-300 rounded-lg mb-3"
+          placeholder="Description (optional)"
+          rows={2}
         />
         <div className="grid grid-cols-2 gap-3 mb-3">
           <input
@@ -193,8 +198,9 @@ function QuestionRow({
             onChange={(e) => setEditData({ ...editData, weight: Number(e.target.value) })}
             className="px-4 py-2 border border-slate-300 rounded-lg"
             placeholder="Weight"
-            min="1"
+            min="0.1"
             max="10"
+            step="0.1"
           />
         </div>
         <div className="flex gap-2">
@@ -217,23 +223,36 @@ function QuestionRow({
     );
   }
 
+  const categoryName = question.category?.name || 'Unknown';
+  const questionType = question.type?.replace(/_/g, ' ') || 'Unknown';
+
   return (
     <div className="p-6 hover:bg-slate-50 transition-colors">
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
             <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
-              {question.category}
+              {categoryName}
             </span>
             <span className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-sm font-medium">
-              {question.type.replace('_', ' ')}
+              {questionType}
             </span>
             <span className="text-sm text-slate-600">Weight: {question.weight}</span>
+            {question.required && (
+              <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded">Required</span>
+            )}
           </div>
           <p className="text-slate-900 font-medium">{question.text}</p>
+          {question.description && (
+            <p className="text-sm text-slate-600 mt-1">{question.description}</p>
+          )}
           {question.options && question.options.length > 0 && (
-            <div className="mt-2 text-sm text-slate-600">
-              Options: {question.options.join(', ')}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {question.options.map((option: any, idx: number) => (
+                <span key={idx} className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded">
+                  {option.text}
+                </span>
+              ))}
             </div>
           )}
         </div>
@@ -241,12 +260,14 @@ function QuestionRow({
           <button
             onClick={onEdit}
             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            title="Edit question"
           >
             <Edit className="w-4 h-4" />
           </button>
           <button
             onClick={onDelete}
             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            title="Delete question"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -263,25 +284,27 @@ function CreateQuestionModal({
 }: {
   onClose: () => void;
   onCreate: (data: CreateQuestionDto) => void;
-  categories: string[];
+  categories: Array<{ id: string; name: string; description: string; weight: number; order: number }>;
 }) {
   const [formData, setFormData] = useState({
-    category: categories[0],
+    categoryId: categories[0]?.id || '',
     text: '',
-    type: 'multiple_choice' as const,
-    options: [''],
-    weight: 5,
+    type: 'SINGLE_CHOICE' as const,
+    description: '',
+    options: [],
+    weight: 1,
+    required: true,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onCreate(formData);
+    onCreate(formData as any);
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full">
-        <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">
           <h2 className="text-2xl font-bold text-slate-900">Add Question</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
             <X className="w-6 h-6" />
@@ -292,12 +315,15 @@ function CreateQuestionModal({
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Category</label>
             <select
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              value={formData.categoryId}
+              onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+              required
             >
               {categories.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
               ))}
             </select>
           </div>
@@ -310,6 +336,18 @@ function CreateQuestionModal({
               onChange={(e) => setFormData({ ...formData, text: e.target.value })}
               rows={3}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+              placeholder="Enter your question here..."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Description (Optional)</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              rows={2}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+              placeholder="Additional context or help text..."
             />
           </div>
 
@@ -320,23 +358,37 @@ function CreateQuestionModal({
               onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg"
             >
-              <option value="multiple_choice">Multiple Choice</option>
-              <option value="yes_no">Yes/No</option>
-              <option value="rating">Rating</option>
+              <option value="YES_NO">Yes/No</option>
+              <option value="SINGLE_CHOICE">Single Choice</option>
+              <option value="RATING">Rating</option>
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Weight (1-10)</label>
-            <input
-              type="number"
-              required
-              min="1"
-              max="10"
-              value={formData.weight}
-              onChange={(e) => setFormData({ ...formData, weight: Number(e.target.value) })}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Weight</label>
+              <input
+                type="number"
+                required
+                min="0.1"
+                max="10"
+                step="0.1"
+                value={formData.weight}
+                onChange={(e) => setFormData({ ...formData, weight: Number(e.target.value) })}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+              />
+            </div>
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.required}
+                  onChange={(e) => setFormData({ ...formData, required: e.target.checked })}
+                  className="w-4 h-4 text-blue-600"
+                />
+                <span className="text-sm font-medium text-slate-700">Required Question</span>
+              </label>
+            </div>
           </div>
 
           <div className="flex gap-4 pt-4">

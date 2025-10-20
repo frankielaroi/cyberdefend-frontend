@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useGetCSIDirectoryQuery, useGetCSIHeatmapQuery, useGetCSIInsightsQuery } from '../../store/api/csiDirectoryApi';
-import { Search, MapPin, Building2, Eye, Shield, TrendingUp, BarChart3, Table, Grid3X3,Home } from 'lucide-react';
+import { Search, MapPin, Building2, Eye, Shield, TrendingUp, BarChart3, Table, Grid3X3, Home, ArrowLeft, ChevronRight } from 'lucide-react';
 import type { Sector, OrganizationSize } from '../../types';
 import { useNavigate } from 'react-router-dom';
 
@@ -38,26 +38,64 @@ export default function CSIDirectory() {
   const entries = directoryData?.data || [];
   const total = directoryData?.pagination?.total || 0;
 
+  // Aggregate assessments into unique organizations to avoid repeated org entries
+  const organizations = useMemo(() => {
+    const map: Record<string, any> = {};
+    entries.forEach((e: any, idx: number) => {
+      const orgId = e.organizationId || `org-${idx}`;
+      const existing = map[orgId];
+
+      const assessmentDate = e.lastAssessmentDate
+        ? new Date(e.lastAssessmentDate)
+        : e.completedAt
+        ? new Date(e.completedAt)
+        : e.createdAt
+        ? new Date(e.createdAt)
+        : new Date();
+
+      if (!existing) {
+        map[orgId] = {
+          organizationId: orgId,
+          name: e.organization?.name || e.name || 'Unknown',
+          sector: e.organization?.sector || e.sector || 'UNKNOWN',
+          region: e.organization?.region || e.region || '',
+          score: e.score ?? 0,
+          lastAssessmentDate: assessmentDate.toISOString(),
+          assessmentCount: 1,
+          tier: e.tier || e.riskTier || undefined,
+        };
+      } else {
+        existing.assessmentCount += 1;
+        // update to most recent assessment info
+        const existingDate = new Date(existing.lastAssessmentDate);
+        if (assessmentDate > existingDate) {
+          existing.lastAssessmentDate = assessmentDate.toISOString();
+          existing.score = e.score ?? existing.score;
+          existing.name = e.organization?.name || e.name || existing.name;
+          existing.sector = e.organization?.sector || e.sector || existing.sector;
+          existing.region = e.organization?.region || e.region || existing.region;
+          existing.tier = e.tier || e.riskTier || existing.tier;
+        }
+      }
+    });
+
+    return Object.values(map).sort((a: any, b: any) => new Date(b.lastAssessmentDate).getTime() - new Date(a.lastAssessmentDate).getTime());
+  }, [entries]);
+
   const sectors = ['BANKING', 'TELECOMMUNICATIONS', 'INSURANCE', 'GOVERNMENT', 'HEALTHCARE', 'EDUCATION', 'ENERGY', 'MANUFACTURING', 'RETAIL', 'LOGISTICS', 'TECHNOLOGY', 'NGO'];
   const regions = ['Greater Accra', 'Ashanti', 'Western', 'Eastern', 'Northern', 'Central', 'Volta', 'Upper East', 'Upper West', 'Brong-Ahafo'];
   const sizes = ['SMALL', 'MEDIUM', 'LARGE', 'ENTERPRISE'];
   const riskTiers = ['Low Risk (80-100)', 'Medium Risk (60-79)', 'High Risk (0-59)'];
 
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-600 bg-green-100';
-    if (score >= 60) return 'text-yellow-600 bg-yellow-100';
-    return 'text-red-600 bg-red-100';
-  };
-
   const getTierBadge = (tier: string) => {
     const colors = {
-      A: 'bg-green-100 text-green-700',
-      B: 'bg-blue-100 text-blue-700',
-      C: 'bg-yellow-100 text-yellow-700',
-      D: 'bg-orange-100 text-orange-700',
-      F: 'bg-red-100 text-red-700',
+      A: 'bg-green-600 text-white',
+      B: 'bg-blue-600 text-white',
+      C: 'bg-yellow-600 text-white',
+      D: 'bg-orange-600 text-white',
+      F: 'bg-red-600 text-white',
     };
-    return colors[tier as keyof typeof colors] || 'bg-slate-100 text-slate-700';
+    return colors[tier as keyof typeof colors] || 'bg-slate-600 text-white';
   };
 
   const clearFilters = () => {
@@ -71,62 +109,84 @@ export default function CSIDirectory() {
   };
 
   return (
-    <div className="space-y-6">
-      <Home className="w-5 h-5 text-slate-600" /> 
-      {/* Header Section */}
-      <div className="text-center">
-        <div className="flex justify-center mb-4">
-          <div className="w-16 h-16 bg-slate-100 rounded-lg flex items-center justify-center">
-            <BarChart3 className="w-8 h-8 text-slate-600" />
+    <div className="min-h-screen bg-slate-900">
+      {/* Navigation Breadcrumb */}
+      <div className="bg-slate-800 border-b border-slate-700 px-6 py-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <button 
+                onClick={() => navigate('/dashboard')}
+                className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors duration-200"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                <span>Back to Dashboard</span>
+              </button>
+              <ChevronRight className="w-4 h-4 text-slate-600" />
+              <div className="flex items-center space-x-2 text-white">
+                <Home className="w-5 h-5" />
+                <span className="font-medium">CSI Directory</span>
+              </div>
+            </div>
           </div>
-        </div>
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">CSI Directory</h1>
-        <p className="text-slate-600 max-w-2xl mx-auto">
-          Public leaderboard showcasing organizational cybersecurity standings.<br />
-          Compare security postures across industries and learn from top performers.
-        </p>
-      </div>
-
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg p-6 text-center shadow-sm border border-slate-200">
-          <div className="text-2xl font-bold text-slate-900 mb-1">
-            {total}
-          </div>
-          <div className="text-sm text-slate-600">Total Organizations</div>
-        </div>
-        
-        <div className="bg-white rounded-lg p-6 text-center shadow-sm border border-slate-200">
-          <div className="text-2xl font-bold text-slate-900 mb-1">
-            {insightsData?.data?.benchmarks?.nationalAverage?.toFixed(1) || '71.8'}
-          </div>
-          <div className="text-sm text-slate-600">Average CSI Score</div>
-        </div>
-        
-        <div className="bg-white rounded-lg p-6 text-center shadow-sm border border-slate-200">
-          <div className="text-2xl font-bold text-green-600 mb-1">
-            {insightsData?.data?.riskDistribution?.lowRisk || '25'}
-          </div>
-          <div className="text-sm text-slate-600">Low Risk Organizations</div>
-          <div className="text-xs text-slate-500 mt-1">Score 80+</div>
-        </div>
-        
-        <div className="bg-white rounded-lg p-6 text-center shadow-sm border border-slate-200">
-          <div className="text-2xl font-bold text-slate-900 mb-1">
-            {Object.keys(insightsData?.data?.benchmarks?.sectorAverages || {}).length || '3'}
-          </div>
-          <div className="text-sm text-slate-600">Sectors Covered</div>
         </div>
       </div>
 
-      {/* Risk Distribution Summary */}
-      {insightsData?.data?.riskDistribution && (
-        <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
-          <div className="flex items-center gap-2 mb-4">
-            <Shield className="w-5 h-5 text-blue-500" />
-            <h2 className="text-lg font-semibold text-slate-900">Risk Distribution</h2>
-            <span className="text-sm text-slate-600">Cybersecurity risk levels across organizations</span>
+      <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+        {/* Header Section */}
+        <div className="text-center animate-fadeIn">
+          <div className="flex justify-center mb-4">
+            <div className="w-16 h-16 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg animate-slideDown">
+              <BarChart3 className="w-8 h-8 text-white" />
+            </div>
           </div>
+          <h1 className="text-3xl font-bold text-white mb-2 animate-slideDown">CSI Directory</h1>
+          <p className="text-slate-400 max-w-2xl mx-auto animate-slideUp">
+            Public leaderboard showcasing organizational cybersecurity standings.<br />
+            Compare security postures across industries and learn from top performers.
+          </p>
+        </div>
+
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-slate-800 rounded-lg p-6 text-center shadow-lg border border-slate-700 hover:border-blue-500 transition-all duration-300 hover:scale-105 animate-slideUp" style={{ animationDelay: '0ms' }}>
+              <div className="text-2xl font-bold text-white mb-1 animate-countUp">
+              {total}
+            </div>
+            <div className="text-sm text-slate-400">Total Organizations</div>
+          </div>
+          
+          <div className="bg-slate-800 rounded-lg p-6 text-center shadow-lg border border-slate-700 hover:border-blue-500 transition-all duration-300 hover:scale-105 animate-slideUp" style={{ animationDelay: '100ms' }}>
+            <div className="text-2xl font-bold text-blue-400 mb-1 animate-countUp">
+              {insightsData?.data?.benchmarks?.nationalAverage?.toFixed(1) || '71.8'}
+            </div>
+            <div className="text-sm text-slate-400">Average CSI Score</div>
+          </div>
+          
+          <div className="bg-slate-800 rounded-lg p-6 text-center shadow-lg border border-slate-700 hover:border-green-500 transition-all duration-300 hover:scale-105 animate-slideUp" style={{ animationDelay: '200ms' }}>
+            <div className="text-2xl font-bold text-green-400 mb-1 animate-countUp">
+              {insightsData?.data?.riskDistribution?.lowRisk || '25'}
+            </div>
+            <div className="text-sm text-slate-400">Low Risk Organizations</div>
+            <div className="text-xs text-slate-500 mt-1">Score 80+</div>
+          </div>
+          
+          <div className="bg-slate-800 rounded-lg p-6 text-center shadow-lg border border-slate-700 hover:border-blue-500 transition-all duration-300 hover:scale-105 animate-slideUp" style={{ animationDelay: '300ms' }}>
+            <div className="text-2xl font-bold text-white mb-1 animate-countUp">
+              {Object.keys(insightsData?.data?.benchmarks?.sectorAverages || {}).length || '3'}
+            </div>
+            <div className="text-sm text-slate-400">Sectors Covered</div>
+          </div>
+        </div>
+
+        {/* Risk Distribution Summary */}
+        {insightsData?.data?.riskDistribution && (
+          <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-700 animate-slideUp" style={{ animationDelay: '400ms' }}>
+            <div className="flex items-center gap-2 mb-4">
+              <Shield className="w-5 h-5 text-blue-400 animate-pulse" />
+              <h2 className="text-lg font-semibold text-white">Risk Distribution</h2>
+              <span className="text-sm text-slate-400">Cybersecurity risk levels across organizations</span>
+            </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
@@ -139,39 +199,39 @@ export default function CSIDirectory() {
               </div>
             </div>
             
-            <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+            <div className="flex items-center justify-between p-4 bg-yellow-900/30 rounded-lg border border-yellow-700 hover:border-yellow-500 transition-all duration-300">
               <div>
-                <h3 className="font-semibold text-yellow-800">Medium Risk</h3>
-                <p className="text-sm text-yellow-600">Score 60-79</p>
+                <h3 className="font-semibold text-yellow-400">Medium Risk</h3>
+                <p className="text-sm text-yellow-500">Score 60-79</p>
               </div>
-              <div className="text-2xl font-bold text-yellow-600">
+              <div className="text-2xl font-bold text-yellow-400">
                 {insightsData.data.riskDistribution.mediumRisk}
               </div>
             </div>
             
-            <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
+            <div className="flex items-center justify-between p-4 bg-red-900/30 rounded-lg border border-red-700 hover:border-red-500 transition-all duration-300">
               <div>
-                <h3 className="font-semibold text-red-800">High Risk</h3>
-                <p className="text-sm text-red-600">Score 0-59</p>
+                <h3 className="font-semibold text-red-400">High Risk</h3>
+                <p className="text-sm text-red-500">Score 0-59</p>
               </div>
-              <div className="text-2xl font-bold text-red-600">
+              <div className="text-2xl font-bold text-red-400">
                 {insightsData.data.riskDistribution.highRisk}
               </div>
             </div>
           </div>
           
-          {/* Risk distribution visualization */}
-          <div className="mt-6">
-            <div className="flex items-center justify-between text-sm text-slate-600 mb-2">
-              <span>Risk Distribution</span>
-              <span>
-                {insightsData.data.riskDistribution.lowRisk + 
-                 insightsData.data.riskDistribution.mediumRisk + 
-                 insightsData.data.riskDistribution.highRisk} total organizations
-              </span>
-            </div>
-            <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
-              <div className="h-full flex">
+            {/* Risk distribution visualization */}
+            <div className="mt-6">
+              <div className="flex items-center justify-between text-sm text-slate-400 mb-2">
+                <span>Risk Distribution</span>
+                <span>
+                  {insightsData.data.riskDistribution.lowRisk + 
+                   insightsData.data.riskDistribution.mediumRisk + 
+                   insightsData.data.riskDistribution.highRisk} total organizations
+                </span>
+              </div>
+              <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
+                <div className="h-full flex">
                 <div 
                   className="bg-green-500" 
                   style={{ 
@@ -205,197 +265,197 @@ export default function CSIDirectory() {
         </div>
       )}
 
-      {/* Top Performers Section */}
-      <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingUp className="w-5 h-5 text-yellow-500" />
-          <h2 className="text-lg font-semibold text-slate-900">Top Performers</h2>
-          <span className="text-sm text-slate-600">Organizations leading in cybersecurity excellence</span>
-        </div>
+        {/* Top Performers Section */}
+        <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-700 animate-slideUp" style={{ animationDelay: '800ms' }}>
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp className="w-5 h-5 text-yellow-400 animate-bounce" />
+            <h2 className="text-lg font-semibold text-white">Top Performers</h2>
+            <span className="text-sm text-slate-400">Organizations leading in cybersecurity excellence</span>
+          </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {(insightsData?.data?.topPerformers?.overall && insightsData.data.topPerformers.overall.length > 0 
-            ? insightsData.data.topPerformers.overall 
-            : entries.slice(0, 3)
-          ).map((entry: any, index: number) => (
-            <div key={entry.organizationId || entry.organization || index} className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
-              <div className="w-12 h-12 bg-slate-200 rounded-lg flex items-center justify-center">
-                <Building2 className="w-6 h-6 text-slate-600" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {(insightsData?.data?.topPerformers?.overall && insightsData.data.topPerformers.overall.length > 0 
+              ? insightsData.data.topPerformers.overall 
+              : organizations.slice(0, 3)
+            ).map((entry: any, index: number) => (
+              <div key={`${entry.organizationId}-${index}`} className="flex items-center gap-4 p-4 bg-slate-700 rounded-lg hover:bg-slate-600 transition-all duration-300 hover:scale-105 animate-scaleIn" style={{ animationDelay: `${900 + index * 100}ms` }}>
+                <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center animate-pulse">
+                  <Building2 className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-white">{entry.name}</h3>
+                  <p className="text-sm text-slate-400">{entry.sector}</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-blue-400">{entry.score}</div>
+                  <div className="text-xs text-slate-400">CSI Score</div>
+                  {entry.improvement && (
+                    <div className="text-xs text-green-400">+{entry.improvement}%</div>
+                  )}
+                </div>
               </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-slate-900">{entry.organization || entry.name}</h3>
-                <p className="text-sm text-slate-600">{entry.sector}</p>
-              </div>
-              <div className="text-right">
-                <div className="text-lg font-bold text-slate-900">{entry.score}</div>
-                <div className="text-xs text-slate-500">CSI Score</div>
-                {entry.improvement && (
-                  <div className="text-xs text-green-600">+{entry.improvement}%</div>
-                )}
-              </div>
+            ))}
+          </div>
+          
+          {/* Show message if no top performers data available */}
+          {(!insightsData?.data?.topPerformers?.overall || insightsData.data.topPerformers.overall.length === 0) && entries.length === 0 && (
+            <div className="text-center py-8 text-slate-400">
+              <p>No performance data available yet. Check back soon!</p>
             </div>
-          ))}
+          )}
         </div>
-        
-        {/* Show message if no top performers data available */}
-        {(!insightsData?.data?.topPerformers?.overall || insightsData.data.topPerformers.overall.length === 0) && entries.length === 0 && (
-          <div className="text-center py-8 text-slate-500">
-            <p>No performance data available yet. Check back soon!</p>
+
+        {/* Sector Performance Section */}
+        {insightsData?.data?.benchmarks?.sectorAverages && Object.keys(insightsData.data.benchmarks.sectorAverages).length > 0 && (
+          <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-700 animate-slideUp" style={{ animationDelay: '1200ms' }}>
+            <div className="flex items-center gap-2 mb-4">
+              <Building2 className="w-5 h-5 text-blue-400" />
+              <h2 className="text-lg font-semibold text-white">Sector Performance</h2>
+              <span className="text-sm text-slate-400">Average cybersecurity scores by industry</span>
+            </div>
+          
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {Object.entries(insightsData.data.benchmarks.sectorAverages)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 6)
+                .map(([sector, average], index) => (
+                  <div key={sector} className="flex items-center justify-between p-4 bg-slate-700 rounded-lg hover:bg-slate-600 transition-all duration-300 hover:scale-105 animate-fadeIn" style={{ animationDelay: `${1300 + index * 50}ms` }}>
+                    <div>
+                      <h3 className="font-semibold text-white capitalize">
+                        {sector.toLowerCase().replace('_', ' ')}
+                      </h3>
+                      <p className="text-sm text-slate-400">Industry Average</p>
+                    </div>
+                    <div className="text-right">
+                      <div className={`text-lg font-bold ${
+                        average >= 80 ? 'text-green-400' :
+                        average >= 70 ? 'text-yellow-400' :
+                        'text-red-400'
+                      }`}>
+                        {average}
+                      </div>
+                      <div className="text-xs text-slate-400">Score</div>
+                    </div>
+                  </div>
+                ))}
+            </div>
           </div>
         )}
-      </div>
 
-      {/* Sector Performance Section */}
-      {insightsData?.data?.benchmarks?.sectorAverages && Object.keys(insightsData.data.benchmarks.sectorAverages).length > 0 && (
-        <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
-          <div className="flex items-center gap-2 mb-4">
-            <Building2 className="w-5 h-5 text-blue-500" />
-            <h2 className="text-lg font-semibold text-slate-900">Sector Performance</h2>
-            <span className="text-sm text-slate-600">Average cybersecurity scores by industry</span>
-          </div>
+        {/* Regional Performance Section */}
+        {insightsData?.data?.benchmarks?.regionalAverages && Object.keys(insightsData.data.benchmarks.regionalAverages).length > 0 && (
+          <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-700 animate-slideUp" style={{ animationDelay: '1600ms' }}>
+            <div className="flex items-center gap-2 mb-4">
+              <MapPin className="w-5 h-5 text-green-400" />
+              <h2 className="text-lg font-semibold text-white">Regional Performance</h2>
+              <span className="text-sm text-slate-400">Average cybersecurity scores by region</span>
+            </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {Object.entries(insightsData.data.benchmarks.sectorAverages)
-              .sort(([,a], [,b]) => b - a)
-              .slice(0, 6)
-              .map(([sector, average]) => (
-                <div key={sector} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                  <div>
-                    <h3 className="font-semibold text-slate-900 capitalize">
-                      {sector.toLowerCase().replace('_', ' ')}
-                    </h3>
-                    <p className="text-sm text-slate-600">Industry Average</p>
-                  </div>
-                  <div className="text-right">
-                    <div className={`text-lg font-bold ${
-                      average >= 80 ? 'text-green-600' :
-                      average >= 70 ? 'text-yellow-600' :
-                      'text-red-600'
-                    }`}>
-                      {average}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {Object.entries(insightsData.data.benchmarks.regionalAverages)
+                .sort(([,a], [,b]) => b - a)
+                .map(([region, average], index) => (
+                  <div key={region} className="flex items-center justify-between p-4 bg-slate-700 rounded-lg hover:bg-slate-600 transition-all duration-300 hover:scale-105 animate-fadeIn" style={{ animationDelay: `${1700 + index * 50}ms` }}>
+                    <div>
+                      <h3 className="font-semibold text-white">{region}</h3>
+                      <p className="text-sm text-slate-400">Regional Average</p>
                     </div>
-                    <div className="text-xs text-slate-500">Score</div>
-                  </div>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
-
-      {/* Regional Performance Section */}
-      {insightsData?.data?.benchmarks?.regionalAverages && Object.keys(insightsData.data.benchmarks.regionalAverages).length > 0 && (
-        <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
-          <div className="flex items-center gap-2 mb-4">
-            <MapPin className="w-5 h-5 text-green-500" />
-            <h2 className="text-lg font-semibold text-slate-900">Regional Performance</h2>
-            <span className="text-sm text-slate-600">Average cybersecurity scores by region</span>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {Object.entries(insightsData.data.benchmarks.regionalAverages)
-              .sort(([,a], [,b]) => b - a)
-              .map(([region, average]) => (
-                <div key={region} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                  <div>
-                    <h3 className="font-semibold text-slate-900">{region}</h3>
-                    <p className="text-sm text-slate-600">Regional Average</p>
-                  </div>
-                  <div className="text-right">
-                    <div className={`text-lg font-bold ${
-                      average >= 80 ? 'text-green-600' :
-                      average >= 70 ? 'text-yellow-600' :
-                      'text-red-600'
-                    }`}>
-                      {average}
+                    <div className="text-right">
+                      <div className={`text-lg font-bold ${
+                        average >= 80 ? 'text-green-400' :
+                        average >= 70 ? 'text-yellow-400' :
+                        'text-red-400'
+                      }`}>
+                        {average}
+                      </div>
+                      <div className="text-xs text-slate-400">Score</div>
                     </div>
-                    <div className="text-xs text-slate-500">Score</div>
                   </div>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
-
-      {/* Filters Section */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search organizations..."
-              value={filters.search}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          
-          {/* View Mode Toggle */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-600 mr-2">All Sectors</span>
-            <span className="text-sm text-slate-600 mr-4">All Risk Levels</span>
-            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${
-                  viewMode === 'grid' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-800'
-                }`}
-              >
-                <Grid3X3 className="w-4 h-4" />
-                Cards
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${
-                  viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-800'
-                }`}
-              >
-                <Table className="w-4 h-4" />
-                Table
-              </button>
+                ))}
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Filters Section */}
+        <div className="bg-slate-800 rounded-lg shadow-lg border border-slate-700 p-6 animate-slideUp" style={{ animationDelay: '2000ms' }}>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+              <input
+                type="text"
+                placeholder="Search organizations..."
+                value={filters.search}
+                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 text-white placeholder-slate-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+              />
+            </div>
+          
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-400 mr-2">All Sectors</span>
+              <span className="text-sm text-slate-400 mr-4">All Risk Levels</span>
+              <div className="flex items-center gap-1 bg-slate-700 p-1 rounded-lg">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-1 ${
+                    viewMode === 'grid' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Grid3X3 className="w-4 h-4" />
+                  Cards
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-1 ${
+                    viewMode === 'list' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Table className="w-4 h-4" />
+                  Table
+                </button>
+              </div>
+            </div>
+          </div>
         
-        {/* Quick Filter Buttons */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <select
-            value={filters.sector}
-            onChange={(e) => setFilters({ ...filters, sector: e.target.value as Sector | '' })}
-            className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">All Sectors</option>
-            {sectors.map((sector) => (
-              <option key={sector} value={sector}>{sector.charAt(0) + sector.slice(1).toLowerCase().replace('_', ' ')}</option>
-            ))}
-          </select>
+          {/* Quick Filter Buttons */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <select
+              value={filters.sector}
+              onChange={(e) => setFilters({ ...filters, sector: e.target.value as Sector | '' })}
+              className="px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+            >
+              <option value="">All Sectors</option>
+              {sectors.map((sector) => (
+                <option key={sector} value={sector}>{sector.charAt(0) + sector.slice(1).toLowerCase().replace('_', ' ')}</option>
+              ))}
+            </select>
 
-          <select
-            value={filters.region}
-            onChange={(e) => setFilters({ ...filters, region: e.target.value })}
-            className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">All Regions</option>
-            {regions.map((region) => (
-              <option key={region} value={region}>{region}</option>
-            ))}
-          </select>
+            <select
+              value={filters.region}
+              onChange={(e) => setFilters({ ...filters, region: e.target.value })}
+              className="px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+            >
+              <option value="">All Regions</option>
+              {regions.map((region) => (
+                <option key={region} value={region}>{region}</option>
+              ))}
+            </select>
 
-          <select
-            value={filters.size}
-            onChange={(e) => setFilters({ ...filters, size: e.target.value as OrganizationSize | '' })}
-            className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">All Sizes</option>
-            {sizes.map((size) => (
-              <option key={size} value={size}>{size.charAt(0) + size.slice(1).toLowerCase()}</option>
-            ))}
-          </select>
+            <select
+              value={filters.size}
+              onChange={(e) => setFilters({ ...filters, size: e.target.value as OrganizationSize | '' })}
+              className="px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+            >
+              <option value="">All Sizes</option>
+              {sizes.map((size) => (
+                <option key={size} value={size}>{size.charAt(0) + size.slice(1).toLowerCase()}</option>
+              ))}
+            </select>
 
-          <select
-            value={filters.riskTier}
-            onChange={(e) => setFilters({ ...filters, riskTier: e.target.value })}
-            className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            <select
+              value={filters.riskTier}
+              onChange={(e) => setFilters({ ...filters, riskTier: e.target.value })}
+              className="px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
           >
             <option value="">All Risk Levels</option>
             {riskTiers.map((tier) => (
@@ -404,45 +464,45 @@ export default function CSIDirectory() {
           </select>
         </div>
         
-        {/* Active Filters Display */}
-        {(filters.sector || filters.region || filters.size || filters.riskTier || filters.search) && (
-          <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200">
-            <div className="flex flex-wrap gap-2">
-              {filters.search && (
-                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">
-                  Search: "{filters.search}"
-                </span>
-              )}
-              {filters.sector && (
-                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">
-                  {filters.sector}
-                </span>
-              )}
-              {filters.region && (
-                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">
-                  {filters.region}
-                </span>
-              )}
-              {filters.size && (
-                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">
-                  {filters.size}
-                </span>
-              )}
-              {filters.riskTier && (
-                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">
-                  {filters.riskTier}
-                </span>
-              )}
+          {/* Active Filters Display */}
+          {(filters.sector || filters.region || filters.size || filters.riskTier || filters.search) && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-700">
+              <div className="flex flex-wrap gap-2">
+                {filters.search && (
+                  <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+                    Search: "{filters.search}"
+                  </span>
+                )}
+                {filters.sector && (
+                  <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+                    {filters.sector}
+                  </span>
+                )}
+                {filters.region && (
+                  <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+                    {filters.region}
+                  </span>
+                )}
+                {filters.size && (
+                  <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+                    {filters.size}
+                  </span>
+                )}
+                {filters.riskTier && (
+                  <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+                    {filters.riskTier}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={clearFilters}
+                className="text-slate-400 hover:text-white text-sm font-medium transition-colors duration-200"
+              >
+                Clear All Filters
+              </button>
             </div>
-            <button
-              onClick={clearFilters}
-              className="text-slate-600 hover:text-slate-800 text-sm font-medium"
-            >
-              Clear All Filters
-            </button>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
 
       {/* Results Content */}
       {viewMode === 'map' ? (
@@ -522,10 +582,10 @@ export default function CSIDirectory() {
                     <span className="text-slate-600">Assessed This Month:</span>
                     <span className="font-semibold text-slate-900">
                       {entries.filter((e: any) => {
-                        const assessmentDate = new Date(e.lastAssessmentDate || '');
-                        const now = new Date();
-                        return assessmentDate.getMonth() === now.getMonth();
-                      }).length}
+                            const assessmentDate = new Date(e.lastAssessmentDate || e.completedAt || e.createdAt || '');
+                            const now = new Date();
+                            return assessmentDate.getMonth() === now.getMonth();
+                          }).length}
                     </span>
                   </div>
                 </div>
@@ -533,222 +593,237 @@ export default function CSIDirectory() {
             </div>
           </div>
         </div>
-      ) : (
-        /* List/Grid View */
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-          <div className="p-6 border-b border-slate-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-slate-900">
-                {isLoading ? 'Loading...' : `Showing 1-${Math.min(10, entries.length)} of ${entries.length} organizations`}
-              </h2>
-            </div>
-          </div>
-          
-          {isLoading ? (
-            <div className="p-12 text-center">
-              <Shield className="w-16 h-16 text-slate-300 mx-auto mb-4 animate-pulse" />
-              <p className="text-slate-600">Loading organizations...</p>
-            </div>
-          ) : entries.length === 0 ? (
-            <div className="p-12 text-center">
-              <Search className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-700 mb-2">No organizations found</h3>
-              <p className="text-slate-600">Try adjusting your search criteria or check back later</p>
-            </div>
-          ) : viewMode === 'grid' ? (
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {entries.map((entry: any) => (
-                <div key={entry.id} className="border border-slate-200 rounded-lg p-6 hover:border-blue-300 hover:shadow-md transition-all bg-white">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
-                        <Building2 className="w-6 h-6 text-slate-600" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-slate-900 mb-1">
-                          {entry.name}
-                        </h3>
-                        <div className="text-sm text-slate-600">
-                          {entry.sector}
-                        </div>
-                      </div>
-                    </div>
-                    <div className={`px-2 py-1 rounded text-xs font-medium ${getTierBadge(entry.tier)}`}>
-                      #{entry.rank || 1}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-center">
-                      <div className={`text-3xl font-bold ${getScoreColor(entry.score).split(' ')[0]}`}>
-                        {entry.score}
-                      </div>
-                      <div className="text-sm text-slate-600">
-                        out of 100
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm text-slate-600 mb-1">Risk Level</div>
-                      <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        entry.score >= 80 ? 'bg-green-100 text-green-700' :
-                        entry.score >= 60 ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-red-100 text-red-700'
-                      }`}>
-                        {entry.score >= 80 ? 'Low' : entry.score >= 60 ? 'Medium' : 'High'}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-600">Last Updated</span>
-                      <span className="text-slate-900">
-                        {new Date(entry.lastAssessmentDate || '').toLocaleDateString()}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-600">Security Readiness</span>
-                      <span className="text-slate-900 font-medium">
-                        {entry.score >= 80 ? 'Excellent' : entry.score >= 60 ? 'Good' : 'Improving'}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <button className="w-full mt-4 flex items-center justify-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium py-2 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors">
-                    <Eye className="w-4 h-4" />
-                    View Details
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            /* Table View */
-            <div>
-              {/* Table Header */}
-              <div className="hidden md:grid grid-cols-12 gap-4 p-6 border-b border-slate-200 bg-slate-50 text-sm font-medium text-slate-600">
-                <div className="col-span-4">Organization</div>
-                <div className="col-span-2">CSI Score</div>
-                <div className="col-span-2">Risk Level</div>
-                <div className="col-span-2">Last Updated</div>
-                <div className="col-span-2">Security Readiness</div>
+        ) : (
+          /* List/Grid View */
+          <div className="bg-slate-800 rounded-lg shadow-lg border border-slate-700 animate-slideUp" style={{ animationDelay: '2200ms' }}>
+            <div className="p-6 border-b border-slate-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-white">
+                  {isLoading ? 'Loading...' : `Showing 1-${Math.min(10, entries.length)} of ${entries.length} organizations`}
+                </h2>
               </div>
-              
-              {/* Table Rows */}
-              <div className="divide-y divide-slate-200">
-                {entries.map((entry: any) => (
-                  <div key={entry.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-6 hover:bg-slate-50 transition-colors">
-                    {/* Organization Info */}
-                    <div className="col-span-1 md:col-span-4">
+            </div>
+            
+            {isLoading ? (
+              <div className="p-12 text-center">
+                <Shield className="w-16 h-16 text-slate-600 mx-auto mb-4 animate-pulse" />
+                <p className="text-slate-400">Loading organizations...</p>
+              </div>
+            ) : entries.length === 0 ? (
+              <div className="p-12 text-center">
+                <Search className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-white mb-2">No organizations found</h3>
+                <p className="text-slate-400">Try adjusting your search criteria or check back later</p>
+              </div>
+            ) : viewMode === 'grid' ? (
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {organizations.map((entry: any, index: number) => (
+                  <div key={`${entry.organizationId}-${index}`} className="border border-slate-700 rounded-lg p-6 hover:border-blue-500 hover:shadow-xl transition-all duration-300 bg-slate-700 hover:scale-105 animate-slideUp" style={{ animationDelay: `${index * 50}ms` }}>
+                    <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Building2 className="w-5 h-5 text-slate-600" />
+                        <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
+                          <Building2 className="w-6 h-6 text-white" />
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="font-semibold text-slate-900 truncate">
+                        <div>
+                          <h3 className="text-lg font-bold text-white mb-1">
                             {entry.name}
                           </h3>
-                          <div className="text-sm text-slate-600 flex items-center gap-4">
-                            <span>{entry.sector}</span>
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {entry.region}
-                            </span>
+                          <div className="text-sm text-slate-400">
+                            {entry.sector}
                           </div>
                         </div>
                       </div>
-                    </div>
-                    
-                    {/* CSI Score */}
-                    <div className="col-span-1 md:col-span-2">
-                      <div className="md:hidden text-sm text-slate-600 mb-1">CSI Score</div>
-                      <div className={`text-2xl font-bold ${getScoreColor(entry.score).split(' ')[0]}`}>
-                        {entry.score}
-                      </div>
-                      <div className="text-sm text-slate-600">out of 100</div>
-                    </div>
-                    
-                    {/* Risk Level */}
-                    <div className="col-span-1 md:col-span-2">
-                      <div className="md:hidden text-sm text-slate-600 mb-1">Risk Level</div>
-                      <div className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${
-                        entry.score >= 80 ? 'bg-green-100 text-green-700' :
-                        entry.score >= 60 ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-red-100 text-red-700'
-                      }`}>
-                        {entry.score >= 80 ? 'Low' : entry.score >= 60 ? 'Medium' : 'High'}
+                      <div className={`px-2 py-1 rounded text-xs font-medium ${getTierBadge(entry.tier)}`}>
+                        #{entry.rank || 1}
                       </div>
                     </div>
                     
-                    {/* Last Updated */}
-                    <div className="col-span-1 md:col-span-2">
-                      <div className="md:hidden text-sm text-slate-600 mb-1">Last Updated</div>
-                      <div className="text-sm text-slate-900">
-                        {new Date(entry.lastAssessmentDate || '').toLocaleDateString()}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-center">
+                        <div className={`text-3xl font-bold ${
+                          entry.score >= 80 ? 'text-green-400' :
+                          entry.score >= 60 ? 'text-yellow-400' :
+                          'text-red-400'
+                        }`}>
+                          {entry.score}
+                        </div>
+                        <div className="text-sm text-slate-400">
+                          out of 100
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-slate-400 mb-1">Risk Level</div>
+                        <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          entry.score >= 80 ? 'bg-green-900/50 text-green-400 border border-green-700' :
+                          entry.score >= 60 ? 'bg-yellow-900/50 text-yellow-400 border border-yellow-700' :
+                          'bg-red-900/50 text-red-400 border border-red-700'
+                        }`}>
+                          {entry.score >= 80 ? 'Low' : entry.score >= 60 ? 'Medium' : 'High'}
+                        </div>
                       </div>
                     </div>
                     
-                    {/* Security Readiness */}
-                    <div className="col-span-1 md:col-span-2">
-                      <div className="md:hidden text-sm text-slate-600 mb-1">Security Readiness</div>
-                      <div className="text-sm font-medium text-slate-900">
-                        {entry.score >= 80 ? 'Excellent' : entry.score >= 60 ? 'Good' : 'Improving'}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-400">Last Updated</span>
+                        <span className="text-white">
+                          {new Date(entry.lastAssessmentDate || '').toLocaleDateString()}
+                        </span>
                       </div>
-                      <button className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm font-medium mt-1">
-                        <Eye className="w-4 h-4" />
-                        View Details
-                      </button>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-400">Security Readiness</span>
+                        <span className="text-white font-medium">
+                          {entry.score >= 80 ? 'Excellent' : entry.score >= 60 ? 'Good' : 'Improving'}
+                        </span>
+                      </div>
                     </div>
+                    
+                    <button className="w-full mt-4 flex items-center justify-center gap-2 text-white bg-blue-600 hover:bg-blue-700 text-sm font-medium py-2 border border-blue-500 rounded-lg transition-all duration-200">
+                      <Eye className="w-4 h-4" />
+                      View Details
+                    </button>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-          
-          {/* Pagination */}
-          {entries.length > 0 && (
-            <div className="p-6 border-t border-slate-200 flex items-center justify-between">
-              <div className="text-sm text-slate-600">
-                Showing <span className="font-medium">1-{Math.min(10, entries.length)}</span> of{' '}
-                <span className="font-medium">{entries.length}</span> organizations
+            ) : (
+              /* Table View */
+              <div>
+                {/* Table Header */}
+                <div className="hidden md:grid grid-cols-12 gap-4 p-6 border-b border-slate-700 bg-slate-700 text-sm font-medium text-slate-300">
+                  <div className="col-span-4">Organization</div>
+                  <div className="col-span-2">CSI Score</div>
+                  <div className="col-span-2">Risk Level</div>
+                  <div className="col-span-2">Last Updated</div>
+                  <div className="col-span-2">Security Readiness</div>
+                </div>
+                
+                {/* Table Rows */}
+                <div className="divide-y divide-slate-700">
+                  {organizations.map((entry: any, index: number) => (
+                    <div key={`${entry.organizationId}-${index}`} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-6 hover:bg-slate-700 transition-all duration-200">
+                      {/* Organization Info */}
+                      <div className="col-span-1 md:col-span-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Building2 className="w-5 h-5 text-white" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-semibold text-white truncate">
+                              {entry.name}
+                            </h3>
+                            <div className="text-sm text-slate-400 flex items-center gap-4">
+                              <span>{entry.sector}</span>
+                              <span className="flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {entry.region}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* CSI Score */}
+                      <div className="col-span-1 md:col-span-2">
+                        <div className="md:hidden text-sm text-slate-400 mb-1">CSI Score</div>
+                        <div className={`text-2xl font-bold ${
+                          entry.score >= 80 ? 'text-green-400' :
+                          entry.score >= 60 ? 'text-yellow-400' :
+                          'text-red-400'
+                        }`}>
+                          {entry.score}
+                        </div>
+                        <div className="text-sm text-slate-400">out of 100</div>
+                      </div>
+                      
+                      {/* Risk Level */}
+                      <div className="col-span-1 md:col-span-2">
+                        <div className="md:hidden text-sm text-slate-400 mb-1">Risk Level</div>
+                        <div className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${
+                          entry.score >= 80 ? 'bg-green-900/50 text-green-400 border border-green-700' :
+                          entry.score >= 60 ? 'bg-yellow-900/50 text-yellow-400 border border-yellow-700' :
+                          'bg-red-900/50 text-red-400 border border-red-700'
+                        }`}>
+                          {entry.score >= 80 ? 'Low' : entry.score >= 60 ? 'Medium' : 'High'}
+                        </div>
+                      </div>
+                      
+                      {/* Last Updated */}
+                      <div className="col-span-1 md:col-span-2">
+                        <div className="md:hidden text-sm text-slate-400 mb-1">Last Updated</div>
+                        <div className="text-sm text-white">
+                          {new Date(entry.lastAssessmentDate || '').toLocaleDateString()}
+                        </div>
+                      </div>
+                      
+                      {/* Security Readiness */}
+                      <div className="col-span-1 md:col-span-2">
+                        <div className="md:hidden text-sm text-slate-400 mb-1">Security Readiness</div>
+                        <div className="text-sm font-medium text-white">
+                          {entry.score >= 80 ? 'Excellent' : entry.score >= 60 ? 'Good' : 'Improving'}
+                        </div>
+                        <button className="flex items-center gap-1 text-blue-400 hover:text-blue-300 text-sm font-medium mt-1 transition-colors duration-200">
+                          <Eye className="w-4 h-4" />
+                          View Details
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button className="px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50" disabled>
-                  Previous
-                </button>
-                <div className="flex items-center gap-1">
-                  <button className="px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg">
-                    1
+            )}
+            
+            {/* Pagination */}
+            {entries.length > 0 && (
+              <div className="p-6 border-t border-slate-700 flex items-center justify-between">
+                <div className="text-sm text-slate-400">
+                  Showing <span className="font-medium text-white">1-{Math.min(10, entries.length)}</span> of{' '}
+                  <span className="font-medium text-white">{entries.length}</span> organizations
+                </div>
+                <div className="flex items-center gap-2">
+                  <button className="px-3 py-2 text-sm font-medium text-slate-400 bg-slate-700 rounded-lg hover:bg-slate-600 transition-all duration-200 disabled:opacity-50" disabled>
+                    Previous
                   </button>
-                  <button className="px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">
-                    2
-                  </button>
-                  <button className="px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">
-                    3
+                  <div className="flex items-center gap-1">
+                    <button className="px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg">
+                      1
+                    </button>
+                    <button className="px-3 py-2 text-sm font-medium text-slate-400 hover:bg-slate-700 rounded-lg transition-all duration-200">
+                      2
+                    </button>
+                    <button className="px-3 py-2 text-sm font-medium text-slate-400 hover:bg-slate-700 rounded-lg transition-all duration-200">
+                      3
+                    </button>
+                  </div>
+                  <button className="px-3 py-2 text-sm font-medium text-slate-400 bg-slate-700 rounded-lg hover:bg-slate-600 transition-all duration-200">
+                    Next
                   </button>
                 </div>
-                <button className="px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">
-                  Next
-                </button>
               </div>
-            </div>
-          )}
-        </div>
-      )}
-      
-      {/* Call to Action Section */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-8 text-center">
-        <h2 className="text-2xl font-bold text-slate-900 mb-2">Want to see your organization here?</h2>
-        <p className="text-slate-600 mb-6 max-w-2xl mx-auto">
-          Join the CSI Directory by completing your cybersecurity assessment. Showcase your security 
-          posture and benchmark against industry leaders.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button className="px-6 py-3 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 transition-colors">
-            Take Assessment
-          </button>
-          <button className="px-6 py-3 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors">
-            Create Account
-          </button>
+            )}
+          </div>
+        )}
+        
+        {/* Call to Action Section */}
+        <div className="bg-slate-800 rounded-lg shadow-lg border border-slate-700 p-8 text-center animate-scaleIn" style={{ animationDelay: '2400ms' }}>
+          <h2 className="text-2xl font-bold text-white mb-2">Want to see your organization here?</h2>
+          <p className="text-slate-400 mb-6 max-w-2xl mx-auto">
+            Join the CSI Directory by completing your cybersecurity assessment. Showcase your security 
+            posture and benchmark against industry leaders.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button 
+              onClick={() => navigate('/dashboard/defendx')}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200 hover:scale-110 hover:shadow-xl animate-pulse"
+            >
+              Take Assessment
+            </button>
+            <button 
+              onClick={() => navigate('/register')}
+              className="px-6 py-3 border border-slate-600 text-white rounded-lg font-medium hover:bg-slate-700 transition-all duration-200 hover:scale-105"
+            >
+              Create Account
+            </button>
+          </div>
         </div>
       </div>
     </div>

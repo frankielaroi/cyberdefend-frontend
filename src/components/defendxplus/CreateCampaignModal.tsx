@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useCreateCampaignMutation, useGetCampaignTemplatesQuery } from '../../store/api/realDefendXPlusApi';
-import { X, Mail, Users, Calendar, AlertTriangle, Eye } from 'lucide-react';
+import { useCreateCampaignMutation, useGetCampaignTemplatesQuery, useLaunchCampaignMutation } from '../../store/api/realDefendXPlusApi';
+import { X, Mail, Users, Calendar, AlertTriangle, Eye, CheckCircle, Play, Save } from 'lucide-react';
 import type { CreateCampaignDto } from '../../types';
 
 interface Props {
@@ -10,6 +10,7 @@ interface Props {
 
 export default function CreateCampaignModal({ onClose, onSuccess }: Props) {
   const [createCampaign, { isLoading }] = useCreateCampaignMutation();
+  const [launchCampaign, { isLoading: isLaunching }] = useLaunchCampaignMutation();
   const { data: templatesData, isLoading: templatesLoading } = useGetCampaignTemplatesQuery();
   
   // Extract templates from the paginated response
@@ -29,6 +30,8 @@ export default function CreateCampaignModal({ onClose, onSuccess }: Props) {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showTemplatePreview, setShowTemplatePreview] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdCampaign, setCreatedCampaign] = useState<any>(null);
 
   // Find selected template
   const selectedTemplate = templates.find(t => t.id === formData.templateId);
@@ -107,12 +110,46 @@ export default function CreateCampaignModal({ onClose, onSuccess }: Props) {
         scheduledAt: formData.scheduledAt || undefined,
       }).unwrap();
       
-      onSuccess?.(result.data);
-      onClose();
+      // Show success modal with launch option
+      setCreatedCampaign(result.data);
+      setShowSuccessModal(true);
     } catch (error: any) {
       console.error('Failed to create campaign:', error);
       setErrors({ submit: 'Failed to create campaign. Please try again.' });
     }
+  };
+
+  const handleLaunchNow = async () => {
+    if (!createdCampaign) return;
+    
+    try {
+      // Check if campaign has a scheduled date
+      const hasSchedule = formData.scheduledAt && formData.scheduledAt.trim() !== '';
+      
+      await launchCampaign({
+        campaignId: createdCampaign.id,
+        launchType: hasSchedule ? 'SCHEDULED' : 'NOW',
+        scheduledAt: hasSchedule ? formData.scheduledAt : undefined
+      }).unwrap();
+      
+      const message = hasSchedule 
+        ? `Campaign scheduled for ${new Date(formData.scheduledAt!).toLocaleString()}!`
+        : 'Campaign launched successfully!';
+      alert(message);
+      
+      onSuccess?.(createdCampaign);
+      onClose();
+    } catch (error) {
+      console.error('Failed to launch campaign:', error);
+      alert('Campaign created but failed to launch. You can launch it from the dashboard.');
+      onSuccess?.(createdCampaign);
+      onClose();
+    }
+  };
+
+  const handleSaveAsDraft = () => {
+    onSuccess?.(createdCampaign);
+    onClose();
   };
 
   return (
@@ -429,6 +466,78 @@ export default function CreateCampaignModal({ onClose, onSuccess }: Props) {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && createdCampaign && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="p-6 text-center">
+              <div className="mx-auto flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+                <CheckCircle className="w-10 h-10 text-green-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-900 mb-2">
+                Campaign Created Successfully!
+              </h3>
+              <p className="text-slate-600 mb-4">
+                Your campaign "{createdCampaign.name}" has been created with {createdCampaign.targetCount || 0} targets.
+              </p>
+              
+              {formData.scheduledAt && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-center gap-2 text-amber-900">
+                    <Calendar className="w-4 h-4" />
+                    <p className="text-sm font-medium">
+                      Scheduled for: {new Date(formData.scheduledAt!).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <p className="text-sm text-blue-900">
+                  {formData.scheduledAt 
+                    ? 'Launch to activate the scheduled campaign, or save as draft to modify later.'
+                    : 'Would you like to launch this campaign now or save it as a draft?'
+                  }
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleLaunchNow}
+                  disabled={isLaunching}
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                >
+                  {isLaunching ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                      {formData.scheduledAt ? 'Scheduling...' : 'Launching...'}
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-5 h-5" />
+                      {formData.scheduledAt ? 'Activate Schedule' : 'Launch Now'}
+                    </>
+                  )}
+                </button>
+                
+                <button
+                  onClick={handleSaveAsDraft}
+                  disabled={isLaunching}
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                >
+                  <Save className="w-5 h-5" />
+                  Save as Draft
+                </button>
+              </div>
+
+              <p className="text-xs text-slate-500 mt-4">
+                You can launch draft campaigns later from the dashboard
+              </p>
             </div>
           </div>
         </div>
