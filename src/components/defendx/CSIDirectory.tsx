@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useGetCSIDirectoryQuery, useGetCSIHeatmapQuery, useGetCSIInsightsQuery } from '../../store/api/csiDirectoryApi';
+import { useGetCSIDirectoryQuery, useGetCSIHeatmapQuery } from '../../store/api/csiDirectoryApi';
 import { Search, MapPin, Building2, Eye, Shield, TrendingUp, BarChart3, Table, Grid3X3, Home, ArrowLeft, ChevronRight } from 'lucide-react';
 import type { Sector, OrganizationSize } from '../../types';
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +20,8 @@ export default function CSIDirectory() {
   });
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'map'>('grid');
 
+
+
   // Prepare filters for API call
   const apiFilters = {
     ...(filters.sector && { sector: filters.sector as Sector }),
@@ -33,7 +35,6 @@ export default function CSIDirectory() {
   const navigate = useNavigate()
   const { data: directoryData, isLoading } = useGetCSIDirectoryQuery(apiFilters);
   const { data: heatmapData } = useGetCSIHeatmapQuery();
-  const { data: insightsData } = useGetCSIInsightsQuery();
   
   const entries = directoryData?.data || [];
   const total = directoryData?.pagination?.total || 0;
@@ -87,16 +88,7 @@ export default function CSIDirectory() {
   const sizes = ['SMALL', 'MEDIUM', 'LARGE', 'ENTERPRISE'];
   const riskTiers = ['Low Risk (80-100)', 'Medium Risk (60-79)', 'High Risk (0-59)'];
 
-  const getTierBadge = (tier: string) => {
-    const colors = {
-      A: 'bg-green-600 text-white',
-      B: 'bg-blue-600 text-white',
-      C: 'bg-yellow-600 text-white',
-      D: 'bg-orange-600 text-white',
-      F: 'bg-red-600 text-white',
-    };
-    return colors[tier as keyof typeof colors] || 'bg-slate-600 text-white';
-  };
+  // Removed unused getTierBadge function
 
   const clearFilters = () => {
     setFilters({
@@ -132,261 +124,95 @@ export default function CSIDirectory() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-7xl mx-auto px-6 py-12 space-y-8">
         {/* Header Section */}
-        <div className="text-center animate-fadeIn">
-          <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg animate-slideDown">
-              <BarChart3 className="w-8 h-8 text-white" />
+        <div className="text-center space-y-6">
+          <div className="relative">
+            <div className="absolute inset-0 blur-3xl bg-gradient-to-r from-blue-600/30 via-purple-600/30 to-pink-600/30 rounded-full transform -translate-y-1/2"></div>
+            <div className="relative">
+              <div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-600/10 border border-blue-500/20 text-blue-400 mb-6 transform hover:scale-105 transition-all duration-300">
+                <TrendingUp className="w-4 h-4 mr-2" />
+                <span className="text-sm font-medium">Cybersecurity Insights</span>
+              </div>
+              <h1 className="text-4xl font-bold text-white mb-4 tracking-tight">
+                CSI Directory
+              </h1>
+              <p className="text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">
+                Discover and compare cybersecurity readiness across organizations.
+                <br className="hidden md:block" />
+                Benchmark your performance against industry leaders.
+              </p>
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2 animate-slideDown">CSI Directory</h1>
-          <p className="text-slate-400 max-w-2xl mx-auto animate-slideUp">
-            Public leaderboard showcasing organizational cybersecurity standings.<br />
-            Compare security postures across industries and learn from top performers.
-          </p>
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-slate-800 rounded-lg p-6 text-center shadow-lg border border-slate-700 hover:border-blue-500 transition-all duration-300 hover:scale-105 animate-slideUp" style={{ animationDelay: '0ms' }}>
-              <div className="text-2xl font-bold text-white mb-1 animate-countUp">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="group bg-gradient-to-br from-slate-800 to-slate-800/50 rounded-xl p-6 text-center backdrop-blur-sm border border-slate-700/50 hover:border-blue-500/50 transition-all duration-500 hover:scale-105">
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                <Building2 className="w-6 h-6 text-blue-400" />
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-white mb-2">
               {total}
             </div>
-            <div className="text-sm text-slate-400">Total Organizations</div>
+            <div className="text-sm font-medium text-slate-400">Organizations</div>
           </div>
           
-          <div className="bg-slate-800 rounded-lg p-6 text-center shadow-lg border border-slate-700 hover:border-blue-500 transition-all duration-300 hover:scale-105 animate-slideUp" style={{ animationDelay: '100ms' }}>
-            <div className="text-2xl font-bold text-blue-400 mb-1 animate-countUp">
-              {insightsData?.data?.benchmarks?.nationalAverage?.toFixed(1) || '71.8'}
+          <div className="group bg-gradient-to-br from-slate-800 to-slate-800/50 rounded-xl p-6 text-center backdrop-blur-sm border border-slate-700/50 hover:border-blue-500/50 transition-all duration-500 hover:scale-105">
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-12 h-12 rounded-full bg-purple-600/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                <TrendingUp className="w-6 h-6 text-purple-400" />
+              </div>
             </div>
-            <div className="text-sm text-slate-400">Average CSI Score</div>
+            <div className="text-3xl font-bold text-purple-400 mb-2">
+              71.8
+            </div>
+            <div className="text-sm font-medium text-slate-400">Average Score</div>
           </div>
           
-          <div className="bg-slate-800 rounded-lg p-6 text-center shadow-lg border border-slate-700 hover:border-green-500 transition-all duration-300 hover:scale-105 animate-slideUp" style={{ animationDelay: '200ms' }}>
-            <div className="text-2xl font-bold text-green-400 mb-1 animate-countUp">
-              {insightsData?.data?.riskDistribution?.lowRisk || '25'}
+          <div className="group bg-gradient-to-br from-slate-800 to-slate-800/50 rounded-xl p-6 text-center backdrop-blur-sm border border-slate-700/50 hover:border-green-500/50 transition-all duration-500 hover:scale-105">
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-12 h-12 rounded-full bg-green-600/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                <Shield className="w-6 h-6 text-green-400" />
+              </div>
             </div>
-            <div className="text-sm text-slate-400">Low Risk Organizations</div>
-            <div className="text-xs text-slate-500 mt-1">Score 80+</div>
+            <div className="text-3xl font-bold text-green-400 mb-2">
+              25
+            </div>
+            <div className="text-sm font-medium text-slate-400">Low Risk</div>
           </div>
           
-          <div className="bg-slate-800 rounded-lg p-6 text-center shadow-lg border border-slate-700 hover:border-blue-500 transition-all duration-300 hover:scale-105 animate-slideUp" style={{ animationDelay: '300ms' }}>
-            <div className="text-2xl font-bold text-white mb-1 animate-countUp">
-              {Object.keys(insightsData?.data?.benchmarks?.sectorAverages || {}).length || '3'}
+          <div className="group bg-gradient-to-br from-slate-800 to-slate-800/50 rounded-xl p-6 text-center backdrop-blur-sm border border-slate-700/50 hover:border-blue-500/50 transition-all duration-500 hover:scale-105">
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-12 h-12 rounded-full bg-pink-600/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                <BarChart3 className="w-6 h-6 text-pink-400" />
+              </div>
             </div>
-            <div className="text-sm text-slate-400">Sectors Covered</div>
+            <div className="text-3xl font-bold text-pink-400 mb-2">
+              3
+            </div>
+            <div className="text-sm font-medium text-slate-400">Sectors</div>
           </div>
         </div>
 
-        {/* Risk Distribution Summary */}
-        {insightsData?.data?.riskDistribution && (
-          <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-700 animate-slideUp" style={{ animationDelay: '400ms' }}>
-            <div className="flex items-center gap-2 mb-4">
-              <Shield className="w-5 h-5 text-blue-400 animate-pulse" />
-              <h2 className="text-lg font-semibold text-white">Risk Distribution</h2>
-              <span className="text-sm text-slate-400">Cybersecurity risk levels across organizations</span>
-            </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-              <div>
-                <h3 className="font-semibold text-green-800">Low Risk</h3>
-                <p className="text-sm text-green-600">Score 80-100</p>
-              </div>
-              <div className="text-2xl font-bold text-green-600">
-                {insightsData.data.riskDistribution.lowRisk}
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between p-4 bg-yellow-900/30 rounded-lg border border-yellow-700 hover:border-yellow-500 transition-all duration-300">
-              <div>
-                <h3 className="font-semibold text-yellow-400">Medium Risk</h3>
-                <p className="text-sm text-yellow-500">Score 60-79</p>
-              </div>
-              <div className="text-2xl font-bold text-yellow-400">
-                {insightsData.data.riskDistribution.mediumRisk}
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between p-4 bg-red-900/30 rounded-lg border border-red-700 hover:border-red-500 transition-all duration-300">
-              <div>
-                <h3 className="font-semibold text-red-400">High Risk</h3>
-                <p className="text-sm text-red-500">Score 0-59</p>
-              </div>
-              <div className="text-2xl font-bold text-red-400">
-                {insightsData.data.riskDistribution.highRisk}
-              </div>
-            </div>
-          </div>
-          
-            {/* Risk distribution visualization */}
-            <div className="mt-6">
-              <div className="flex items-center justify-between text-sm text-slate-400 mb-2">
-                <span>Risk Distribution</span>
-                <span>
-                  {insightsData.data.riskDistribution.lowRisk + 
-                   insightsData.data.riskDistribution.mediumRisk + 
-                   insightsData.data.riskDistribution.highRisk} total organizations
-                </span>
-              </div>
-              <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
-                <div className="h-full flex">
-                <div 
-                  className="bg-green-500" 
-                  style={{ 
-                    width: `${(insightsData.data.riskDistribution.lowRisk / 
-                      (insightsData.data.riskDistribution.lowRisk + 
-                       insightsData.data.riskDistribution.mediumRisk + 
-                       insightsData.data.riskDistribution.highRisk)) * 100}%` 
-                  }}
-                />
-                <div 
-                  className="bg-yellow-500" 
-                  style={{ 
-                    width: `${(insightsData.data.riskDistribution.mediumRisk / 
-                      (insightsData.data.riskDistribution.lowRisk + 
-                       insightsData.data.riskDistribution.mediumRisk + 
-                       insightsData.data.riskDistribution.highRisk)) * 100}%` 
-                  }}
-                />
-                <div 
-                  className="bg-red-500" 
-                  style={{ 
-                    width: `${(insightsData.data.riskDistribution.highRisk / 
-                      (insightsData.data.riskDistribution.lowRisk + 
-                       insightsData.data.riskDistribution.mediumRisk + 
-                       insightsData.data.riskDistribution.highRisk)) * 100}%` 
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
-        {/* Top Performers Section */}
-        <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-700 animate-slideUp" style={{ animationDelay: '800ms' }}>
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-5 h-5 text-yellow-400 animate-bounce" />
-            <h2 className="text-lg font-semibold text-white">Top Performers</h2>
-            <span className="text-sm text-slate-400">Organizations leading in cybersecurity excellence</span>
-          </div>
-        
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {(insightsData?.data?.topPerformers?.overall && insightsData.data.topPerformers.overall.length > 0 
-              ? insightsData.data.topPerformers.overall 
-              : organizations.slice(0, 3)
-            ).map((entry: any, index: number) => (
-              <div key={`${entry.organizationId}-${index}`} className="flex items-center gap-4 p-4 bg-slate-700 rounded-lg hover:bg-slate-600 transition-all duration-300 hover:scale-105 animate-scaleIn" style={{ animationDelay: `${900 + index * 100}ms` }}>
-                <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center animate-pulse">
-                  <Building2 className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-white">{entry.name}</h3>
-                  <p className="text-sm text-slate-400">{entry.sector}</p>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-bold text-blue-400">{entry.score}</div>
-                  <div className="text-xs text-slate-400">CSI Score</div>
-                  {entry.improvement && (
-                    <div className="text-xs text-green-400">+{entry.improvement}%</div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          {/* Show message if no top performers data available */}
-          {(!insightsData?.data?.topPerformers?.overall || insightsData.data.topPerformers.overall.length === 0) && entries.length === 0 && (
-            <div className="text-center py-8 text-slate-400">
-              <p>No performance data available yet. Check back soon!</p>
-            </div>
-          )}
-        </div>
-
-        {/* Sector Performance Section */}
-        {insightsData?.data?.benchmarks?.sectorAverages && Object.keys(insightsData.data.benchmarks.sectorAverages).length > 0 && (
-          <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-700 animate-slideUp" style={{ animationDelay: '1200ms' }}>
-            <div className="flex items-center gap-2 mb-4">
-              <Building2 className="w-5 h-5 text-blue-400" />
-              <h2 className="text-lg font-semibold text-white">Sector Performance</h2>
-              <span className="text-sm text-slate-400">Average cybersecurity scores by industry</span>
-            </div>
-          
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {Object.entries(insightsData.data.benchmarks.sectorAverages)
-                .sort(([,a], [,b]) => b - a)
-                .slice(0, 6)
-                .map(([sector, average], index) => (
-                  <div key={sector} className="flex items-center justify-between p-4 bg-slate-700 rounded-lg hover:bg-slate-600 transition-all duration-300 hover:scale-105 animate-fadeIn" style={{ animationDelay: `${1300 + index * 50}ms` }}>
-                    <div>
-                      <h3 className="font-semibold text-white capitalize">
-                        {sector.toLowerCase().replace('_', ' ')}
-                      </h3>
-                      <p className="text-sm text-slate-400">Industry Average</p>
-                    </div>
-                    <div className="text-right">
-                      <div className={`text-lg font-bold ${
-                        average >= 80 ? 'text-green-400' :
-                        average >= 70 ? 'text-yellow-400' :
-                        'text-red-400'
-                      }`}>
-                        {average}
-                      </div>
-                      <div className="text-xs text-slate-400">Score</div>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-
-        {/* Regional Performance Section */}
-        {insightsData?.data?.benchmarks?.regionalAverages && Object.keys(insightsData.data.benchmarks.regionalAverages).length > 0 && (
-          <div className="bg-slate-800 rounded-lg p-6 shadow-lg border border-slate-700 animate-slideUp" style={{ animationDelay: '1600ms' }}>
-            <div className="flex items-center gap-2 mb-4">
-              <MapPin className="w-5 h-5 text-green-400" />
-              <h2 className="text-lg font-semibold text-white">Regional Performance</h2>
-              <span className="text-sm text-slate-400">Average cybersecurity scores by region</span>
-            </div>
-          
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {Object.entries(insightsData.data.benchmarks.regionalAverages)
-                .sort(([,a], [,b]) => b - a)
-                .map(([region, average], index) => (
-                  <div key={region} className="flex items-center justify-between p-4 bg-slate-700 rounded-lg hover:bg-slate-600 transition-all duration-300 hover:scale-105 animate-fadeIn" style={{ animationDelay: `${1700 + index * 50}ms` }}>
-                    <div>
-                      <h3 className="font-semibold text-white">{region}</h3>
-                      <p className="text-sm text-slate-400">Regional Average</p>
-                    </div>
-                    <div className="text-right">
-                      <div className={`text-lg font-bold ${
-                        average >= 80 ? 'text-green-400' :
-                        average >= 70 ? 'text-yellow-400' :
-                        'text-red-400'
-                      }`}>
-                        {average}
-                      </div>
-                      <div className="text-xs text-slate-400">Score</div>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
+        {/* Sector and Regional Performance sections removed */}
 
         {/* Filters Section */}
-        <div className="bg-slate-800 rounded-lg shadow-lg border border-slate-700 p-6 animate-slideUp" style={{ animationDelay: '2000ms' }}>
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+        <div className="bg-gradient-to-br from-slate-800/80 to-slate-800/40 backdrop-blur-xl rounded-xl border border-slate-700/50 p-8">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8">
+            <div className="relative flex-1 max-w-lg">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400">
+                <Search className="w-full h-full transition-colors duration-200" />
+              </div>
               <input
                 type="text"
                 placeholder="Search organizations..."
                 value={filters.search}
                 onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 text-white placeholder-slate-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className="w-full pl-10 pr-4 py-3 bg-slate-900/50 border border-slate-700/50 text-white placeholder-slate-400 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300"
               />
             </div>
           
@@ -419,50 +245,70 @@ export default function CSIDirectory() {
         
           {/* Quick Filter Buttons */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <select
-              value={filters.sector}
-              onChange={(e) => setFilters({ ...filters, sector: e.target.value as Sector | '' })}
-              className="px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-            >
-              <option value="">All Sectors</option>
-              {sectors.map((sector) => (
-                <option key={sector} value={sector}>{sector.charAt(0) + sector.slice(1).toLowerCase().replace('_', ' ')}</option>
-              ))}
-            </select>
+            <div className="relative group">
+              <select
+                value={filters.sector}
+                onChange={(e) => setFilters({ ...filters, sector: e.target.value as Sector | '' })}
+                className="w-full px-4 py-3 appearance-none bg-slate-900/50 border border-slate-700/50 text-white rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300 hover:border-blue-500/30"
+              >
+                <option value="">All Sectors</option>
+                {sectors.map((sector) => (
+                  <option key={sector} value={sector}>{sector.charAt(0) + sector.slice(1).toLowerCase().replace('_', ' ')}</option>
+                ))}
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 group-hover:text-blue-400 transition-colors duration-200">
+                <ChevronRight className="w-4 h-4 rotate-90" />
+              </div>
+            </div>
 
-            <select
-              value={filters.region}
-              onChange={(e) => setFilters({ ...filters, region: e.target.value })}
-              className="px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-            >
-              <option value="">All Regions</option>
-              {regions.map((region) => (
-                <option key={region} value={region}>{region}</option>
-              ))}
-            </select>
+            <div className="relative group">
+              <select
+                value={filters.region}
+                onChange={(e) => setFilters({ ...filters, region: e.target.value })}
+                className="w-full px-4 py-3 appearance-none bg-slate-900/50 border border-slate-700/50 text-white rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300 hover:border-blue-500/30"
+              >
+                <option value="">All Regions</option>
+                {regions.map((region) => (
+                  <option key={region} value={region}>{region}</option>
+                ))}
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 group-hover:text-blue-400 transition-colors duration-200">
+                <ChevronRight className="w-4 h-4 rotate-90" />
+              </div>
+            </div>
 
-            <select
-              value={filters.size}
-              onChange={(e) => setFilters({ ...filters, size: e.target.value as OrganizationSize | '' })}
-              className="px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-            >
-              <option value="">All Sizes</option>
-              {sizes.map((size) => (
-                <option key={size} value={size}>{size.charAt(0) + size.slice(1).toLowerCase()}</option>
-              ))}
-            </select>
+            <div className="relative group">
+              <select
+                value={filters.size}
+                onChange={(e) => setFilters({ ...filters, size: e.target.value as OrganizationSize | '' })}
+                className="w-full px-4 py-3 appearance-none bg-slate-900/50 border border-slate-700/50 text-white rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300 hover:border-blue-500/30"
+              >
+                <option value="">All Sizes</option>
+                {sizes.map((size) => (
+                  <option key={size} value={size}>{size.charAt(0) + size.slice(1).toLowerCase()}</option>
+                ))}
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 group-hover:text-blue-400 transition-colors duration-200">
+                <ChevronRight className="w-4 h-4 rotate-90" />
+              </div>
+            </div>
 
-            <select
-              value={filters.riskTier}
-              onChange={(e) => setFilters({ ...filters, riskTier: e.target.value })}
-              className="px-4 py-2 bg-slate-700 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-          >
-            <option value="">All Risk Levels</option>
-            {riskTiers.map((tier) => (
-              <option key={tier} value={tier}>{tier}</option>
-            ))}
-          </select>
-        </div>
+            <div className="relative group">
+              <select
+                value={filters.riskTier}
+                onChange={(e) => setFilters({ ...filters, riskTier: e.target.value })}
+                className="w-full px-4 py-3 appearance-none bg-slate-900/50 border border-slate-700/50 text-white rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300 hover:border-blue-500/30"
+              >
+                <option value="">All Risk Levels</option>
+                {riskTiers.map((tier) => (
+                  <option key={tier} value={tier}>{tier}</option>
+                ))}
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 group-hover:text-blue-400 transition-colors duration-200">
+                <ChevronRight className="w-4 h-4 rotate-90" />
+              </div>
+            </div>
+          </div>
         
           {/* Active Filters Display */}
           {(filters.sector || filters.region || filters.size || filters.riskTier || filters.search) && (
@@ -595,12 +441,17 @@ export default function CSIDirectory() {
         </div>
         ) : (
           /* List/Grid View */
-          <div className="bg-slate-800 rounded-lg shadow-lg border border-slate-700 animate-slideUp" style={{ animationDelay: '2200ms' }}>
-            <div className="p-6 border-b border-slate-700">
+          <div className="bg-gradient-to-br from-slate-800/80 to-slate-800/40 backdrop-blur-xl rounded-xl border border-slate-700/50 animate-slideUp">
+            <div className="p-8 border-b border-slate-700/50">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-white">
-                  {isLoading ? 'Loading...' : `Showing 1-${Math.min(10, entries.length)} of ${entries.length} organizations`}
-                </h2>
+                <div className="space-y-1">
+                  <h2 className="text-2xl font-bold text-white">
+                    {isLoading ? 'Loading...' : `${entries.length} Organizations`}
+                  </h2>
+                  <p className="text-slate-400">
+                    {!isLoading && `Showing 1-${Math.min(10, entries.length)} of ${entries.length} results`}
+                  </p>
+                </div>
               </div>
             </div>
             
@@ -616,72 +467,91 @@ export default function CSIDirectory() {
                 <p className="text-slate-400">Try adjusting your search criteria or check back later</p>
               </div>
             ) : viewMode === 'grid' ? (
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {organizations.map((entry: any, index: number) => (
-                  <div key={`${entry.organizationId}-${index}`} className="border border-slate-700 rounded-lg p-6 hover:border-blue-500 hover:shadow-xl transition-all duration-300 bg-slate-700 hover:scale-105 animate-slideUp" style={{ animationDelay: `${index * 50}ms` }}>
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
-                          <Building2 className="w-6 h-6 text-white" />
+                  <div 
+                    key={`${entry.organizationId}-${index}`} 
+                    className="group relative bg-gradient-to-br from-slate-800/90 to-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700/50 hover:border-blue-500/50 transition-all duration-500 hover:scale-105"
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/0 via-blue-500/0 to-blue-500/0 group-hover:from-blue-500/3 group-hover:via-purple-500/3 group-hover:to-pink-500/3 transition-all duration-500"></div>
+                    <div className="relative">
+                      <div className="flex items-start justify-between mb-6">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600/20 to-purple-600/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-500 border border-blue-500/20">
+                            <Building2 className="w-6 h-6 text-blue-400" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-bold text-white mb-1 group-hover:text-blue-400 transition-colors duration-300">
+                              {entry.name}
+                            </h3>
+                            <div className="text-sm text-slate-400 flex items-center gap-2">
+                              <span>{entry.sector}</span>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-white mb-1">
-                            {entry.name}
-                          </h3>
-                          <div className="text-sm text-slate-400">
-                            {entry.sector}
+                        <div className="flex items-center gap-2">
+                          <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            entry.score >= 80 ? 'bg-green-900/30 text-green-400 border border-green-500/30' :
+                            entry.score >= 60 ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-500/30' :
+                            'bg-red-900/30 text-red-400 border border-red-500/30'
+                          }`}>
+                            #{entry.rank || 1}
                           </div>
                         </div>
                       </div>
-                      <div className={`px-2 py-1 rounded text-xs font-medium ${getTierBadge(entry.tier)}`}>
-                        #{entry.rank || 1}
+                    
+                      <div className="grid grid-cols-2 gap-4 mb-6">
+                        <div className="text-center p-4 rounded-xl bg-slate-900/30 border border-slate-700/50">
+                          <div className={`text-3xl font-bold mb-1 ${
+                            entry.score >= 80 ? 'text-green-400' :
+                            entry.score >= 60 ? 'text-yellow-400' :
+                            'text-red-400'
+                          }`}>
+                            {entry.score}
+                          </div>
+                          <div className="text-sm font-medium text-slate-400">
+                            CSI Score
+                          </div>
+                        </div>
+                        <div className="text-center p-4 rounded-xl bg-slate-900/30 border border-slate-700/50">
+                          <div className={`text-3xl font-bold mb-1 ${
+                            entry.score >= 80 ? 'text-green-400' :
+                            entry.score >= 60 ? 'text-yellow-400' :
+                            'text-red-400'
+                          }`}>
+                            {entry.score >= 80 ? 'Low' : entry.score >= 60 ? 'Medium' : 'High'}
+                          </div>
+                          <div className="text-sm font-medium text-slate-400">
+                            Risk Level
+                          </div>
+                        </div>
+                      </div>
+                    
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between text-sm px-4 py-3 rounded-xl bg-slate-900/30 border border-slate-700/50">
+                          <span className="text-slate-400">Last Updated</span>
+                          <span className="text-white font-medium">
+                            {new Date(entry.lastAssessmentDate || '').toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm px-4 py-3 rounded-xl bg-slate-900/30 border border-slate-700/50">
+                          <span className="text-slate-400">Readiness</span>
+                          <span className={`font-medium ${
+                            entry.score >= 80 ? 'text-green-400' :
+                            entry.score >= 60 ? 'text-yellow-400' :
+                            'text-red-400'
+                          }`}>
+                            {entry.score >= 80 ? 'Excellent' : entry.score >= 60 ? 'Good' : 'Improving'}
+                          </span>
+                        </div>
+                        
+                        <button className="w-full flex items-center justify-center gap-2 text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-sm font-medium px-6 py-3 rounded-xl transition-all duration-300 group">
+                          <Eye className="w-4 h-4 group-hover:scale-110 transition-transform duration-300" />
+                          <span>View Details</span>
+                        </button>
                       </div>
                     </div>
-                    
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="text-center">
-                        <div className={`text-3xl font-bold ${
-                          entry.score >= 80 ? 'text-green-400' :
-                          entry.score >= 60 ? 'text-yellow-400' :
-                          'text-red-400'
-                        }`}>
-                          {entry.score}
-                        </div>
-                        <div className="text-sm text-slate-400">
-                          out of 100
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm text-slate-400 mb-1">Risk Level</div>
-                        <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          entry.score >= 80 ? 'bg-green-900/50 text-green-400 border border-green-700' :
-                          entry.score >= 60 ? 'bg-yellow-900/50 text-yellow-400 border border-yellow-700' :
-                          'bg-red-900/50 text-red-400 border border-red-700'
-                        }`}>
-                          {entry.score >= 80 ? 'Low' : entry.score >= 60 ? 'Medium' : 'High'}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-400">Last Updated</span>
-                        <span className="text-white">
-                          {new Date(entry.lastAssessmentDate || '').toLocaleDateString()}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-400">Security Readiness</span>
-                        <span className="text-white font-medium">
-                          {entry.score >= 80 ? 'Excellent' : entry.score >= 60 ? 'Good' : 'Improving'}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <button className="w-full mt-4 flex items-center justify-center gap-2 text-white bg-blue-600 hover:bg-blue-700 text-sm font-medium py-2 border border-blue-500 rounded-lg transition-all duration-200">
-                      <Eye className="w-4 h-4" />
-                      View Details
-                    </button>
                   </div>
                 ))}
               </div>
@@ -689,42 +559,48 @@ export default function CSIDirectory() {
               /* Table View */
               <div>
                 {/* Table Header */}
-                <div className="hidden md:grid grid-cols-12 gap-4 p-6 border-b border-slate-700 bg-slate-700 text-sm font-medium text-slate-300">
-                  <div className="col-span-4">Organization</div>
-                  <div className="col-span-2">CSI Score</div>
-                  <div className="col-span-2">Risk Level</div>
-                  <div className="col-span-2">Last Updated</div>
-                  <div className="col-span-2">Security Readiness</div>
-                </div>
-                
-                {/* Table Rows */}
-                <div className="divide-y divide-slate-700">
-                  {organizations.map((entry: any, index: number) => (
-                    <div key={`${entry.organizationId}-${index}`} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-6 hover:bg-slate-700 transition-all duration-200">
-                      {/* Organization Info */}
-                      <div className="col-span-1 md:col-span-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <Building2 className="w-5 h-5 text-white" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h3 className="font-semibold text-white truncate">
-                              {entry.name}
-                            </h3>
-                            <div className="text-sm text-slate-400 flex items-center gap-4">
-                              <span>{entry.sector}</span>
-                              <span className="flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />
-                                {entry.region}
-                              </span>
-                            </div>
+              {/* Table Header */}
+              <div className="hidden md:grid grid-cols-12 gap-4 p-8 border-b border-slate-700/50 text-sm font-medium text-slate-300">
+                <div className="col-span-4">Organization</div>
+                <div className="col-span-2">CSI Score</div>
+                <div className="col-span-2">Risk Level</div>
+                <div className="col-span-2">Last Updated</div>
+                <div className="col-span-2">Security Readiness</div>
+              </div>
+              
+              {/* Table Rows */}
+              <div className="divide-y divide-slate-700/50">
+                {organizations.map((entry: any, index: number) => (
+                  <div 
+                    key={`${entry.organizationId}-${index}`} 
+                    className="group grid grid-cols-1 md:grid-cols-12 gap-4 p-8 hover:bg-slate-800/50 transition-all duration-300"
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    {/* Organization Info */}
+                    <div className="col-span-1 md:col-span-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-600/20 to-purple-600/20 rounded-xl flex items-center justify-center flex-shrink-0 border border-blue-500/20 group-hover:scale-110 transition-transform duration-500">
+                          <Building2 className="w-6 h-6 text-blue-400" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-bold text-white truncate group-hover:text-blue-400 transition-colors duration-300">
+                            {entry.name}
+                          </h3>
+                          <div className="text-sm text-slate-400 flex items-center gap-4">
+                            <span>{entry.sector}</span>
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3" />
+                              {entry.region}
+                            </span>
                           </div>
                         </div>
                       </div>
-                      
-                      {/* CSI Score */}
-                      <div className="col-span-1 md:col-span-2">
-                        <div className="md:hidden text-sm text-slate-400 mb-1">CSI Score</div>
+                    </div>
+                    
+                    {/* CSI Score */}
+                    <div className="col-span-1 md:col-span-2">
+                      <div className="md:hidden text-sm text-slate-400 mb-2">CSI Score</div>
+                      <div className="flex items-center gap-2">
                         <div className={`text-2xl font-bold ${
                           entry.score >= 80 ? 'text-green-400' :
                           entry.score >= 60 ? 'text-yellow-400' :
@@ -732,16 +608,17 @@ export default function CSIDirectory() {
                         }`}>
                           {entry.score}
                         </div>
-                        <div className="text-sm text-slate-400">out of 100</div>
+                        <div className="text-sm text-slate-500">/100</div>
                       </div>
+                    </div>
                       
                       {/* Risk Level */}
                       <div className="col-span-1 md:col-span-2">
-                        <div className="md:hidden text-sm text-slate-400 mb-1">Risk Level</div>
-                        <div className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${
-                          entry.score >= 80 ? 'bg-green-900/50 text-green-400 border border-green-700' :
-                          entry.score >= 60 ? 'bg-yellow-900/50 text-yellow-400 border border-yellow-700' :
-                          'bg-red-900/50 text-red-400 border border-red-700'
+                        <div className="md:hidden text-sm text-slate-400 mb-2">Risk Level</div>
+                        <div className={`inline-flex px-4 py-1.5 rounded-full text-sm font-medium ${
+                          entry.score >= 80 ? 'bg-green-900/30 text-green-400 border border-green-500/30' :
+                          entry.score >= 60 ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-500/30' :
+                          'bg-red-900/30 text-red-400 border border-red-500/30'
                         }`}>
                           {entry.score >= 80 ? 'Low' : entry.score >= 60 ? 'Medium' : 'High'}
                         </div>
@@ -749,83 +626,71 @@ export default function CSIDirectory() {
                       
                       {/* Last Updated */}
                       <div className="col-span-1 md:col-span-2">
-                        <div className="md:hidden text-sm text-slate-400 mb-1">Last Updated</div>
-                        <div className="text-sm text-white">
+                        <div className="md:hidden text-sm text-slate-400 mb-2">Last Updated</div>
+                        <div className="text-sm text-white font-medium">
                           {new Date(entry.lastAssessmentDate || '').toLocaleDateString()}
                         </div>
                       </div>
                       
                       {/* Security Readiness */}
                       <div className="col-span-1 md:col-span-2">
-                        <div className="md:hidden text-sm text-slate-400 mb-1">Security Readiness</div>
-                        <div className="text-sm font-medium text-white">
-                          {entry.score >= 80 ? 'Excellent' : entry.score >= 60 ? 'Good' : 'Improving'}
+                        <div className="md:hidden text-sm text-slate-400 mb-2">Security Readiness</div>
+                        <div className="flex items-center justify-between">
+                          <div className={`text-sm font-medium ${
+                            entry.score >= 80 ? 'text-green-400' :
+                            entry.score >= 60 ? 'text-yellow-400' :
+                            'text-red-400'
+                          }`}>
+                            {entry.score >= 80 ? 'Excellent' : entry.score >= 60 ? 'Good' : 'Improving'}
+                          </div>
+                          <button className="flex items-center gap-2 text-blue-400 hover:text-blue-300 text-sm font-medium transition-all duration-300 group-hover:scale-105">
+                            <Eye className="w-4 h-4" />
+                            Details
+                          </button>
                         </div>
-                        <button className="flex items-center gap-1 text-blue-400 hover:text-blue-300 text-sm font-medium mt-1 transition-colors duration-200">
-                          <Eye className="w-4 h-4" />
-                          View Details
-                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-            
-            {/* Pagination */}
-            {entries.length > 0 && (
-              <div className="p-6 border-t border-slate-700 flex items-center justify-between">
-                <div className="text-sm text-slate-400">
-                  Showing <span className="font-medium text-white">1-{Math.min(10, entries.length)}</span> of{' '}
-                  <span className="font-medium text-white">{entries.length}</span> organizations
-                </div>
-                <div className="flex items-center gap-2">
-                  <button className="px-3 py-2 text-sm font-medium text-slate-400 bg-slate-700 rounded-lg hover:bg-slate-600 transition-all duration-200 disabled:opacity-50" disabled>
-                    Previous
-                  </button>
-                  <div className="flex items-center gap-1">
-                    <button className="px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg">
-                      1
-                    </button>
-                    <button className="px-3 py-2 text-sm font-medium text-slate-400 hover:bg-slate-700 rounded-lg transition-all duration-200">
-                      2
-                    </button>
-                    <button className="px-3 py-2 text-sm font-medium text-slate-400 hover:bg-slate-700 rounded-lg transition-all duration-200">
-                      3
-                    </button>
-                  </div>
-                  <button className="px-3 py-2 text-sm font-medium text-slate-400 bg-slate-700 rounded-lg hover:bg-slate-600 transition-all duration-200">
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         )}
-        
-        {/* Call to Action Section */}
-        <div className="bg-slate-800 rounded-lg shadow-lg border border-slate-700 p-8 text-center animate-scaleIn" style={{ animationDelay: '2400ms' }}>
-          <h2 className="text-2xl font-bold text-white mb-2">Want to see your organization here?</h2>
-          <p className="text-slate-400 mb-6 max-w-2xl mx-auto">
-            Join the CSI Directory by completing your cybersecurity assessment. Showcase your security 
-            posture and benchmark against industry leaders.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button 
-              onClick={() => navigate('/dashboard/defendx')}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all duration-200 hover:scale-110 hover:shadow-xl animate-pulse"
-            >
-              Take Assessment
-            </button>
-            <button 
-              onClick={() => navigate('/register')}
-              className="px-6 py-3 border border-slate-600 text-white rounded-lg font-medium hover:bg-slate-700 transition-all duration-200 hover:scale-105"
-            >
-              Create Account
-            </button>
+
+        {/* Pagination */}
+        {entries.length > 0 && (
+          <div className="p-8 border-t border-slate-700/50 flex items-center justify-between">
+            <div className="text-sm text-slate-400">
+              Showing <span className="font-medium text-white">1-{Math.min(10, entries.length)}</span> of{' '}
+              <span className="font-medium text-white">{entries.length}</span> organizations
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                className="px-4 py-2 text-sm font-medium text-slate-400 bg-slate-900/50 rounded-xl border border-slate-700/50 hover:border-blue-500/50 transition-all duration-300 disabled:opacity-50" 
+                disabled
+              >
+                Previous
+              </button>
+              <div className="flex items-center gap-1">
+                <button className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-xl border border-blue-500">
+                  1
+                </button>
+                <button className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white bg-slate-900/50 rounded-xl border border-slate-700/50 hover:border-blue-500/50 transition-all duration-300">
+                  2
+                </button>
+                <button className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white bg-slate-900/50 rounded-xl border border-slate-700/50 hover:border-blue-500/50 transition-all duration-300">
+                  3
+                </button>
+              </div>
+              <button className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white bg-slate-900/50 rounded-xl border border-slate-700/50 hover:border-blue-500/50 transition-all duration-300">
+                Next
+              </button>
+            </div>
           </div>
-        </div>
+        )}
+
       </div>
     </div>
   );
 }
+        

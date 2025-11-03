@@ -48,7 +48,7 @@ export default function UserManagement() {
     }
   );
 
-  const members = membersData?.data || [];
+  const members = membersData || [];
 
   const [inviteMember, { isLoading: isInviting, error: inviteError }] = useInviteMemberMutation();
   const [updateMemberRole, { isLoading: isUpdating }] = useUpdateMemberRoleMutation();
@@ -275,11 +275,15 @@ export default function UserManagement() {
               </h3>
               <div className="mt-2 text-sm text-red-700">
                 <p>
-                  {error?.status === 401 && 'You are not authorized to view organization members. Please check your permissions.'}
-                  {error?.status === 403 && 'You do not have permission to view organization members.'}
-                  {error?.status === 404 && 'Organization not found. Please check your organization settings.'}
-                  {error?.status >= 500 && 'Server error. Please try again later.'}
-                  {!error?.status && ('data' in error ? (error.data as any)?.message : 'Failed to load organization members')}
+                  {('status' in error) && (
+                    <>
+                      {error.status === 401 && 'You are not authorized to view organization members. Please check your permissions.'}
+                      {error.status === 403 && 'You do not have permission to view organization members.'}
+                      {error.status === 404 && 'Organization not found. Please check your organization settings.'}
+                      {typeof error.status === 'number' && error.status >= 500 && 'Server error. Please try again later.'}
+                    </>
+                  )}
+                  {!('status' in error) && ('data' in error ? (error.data as any)?.message : 'Failed to load organization members')}
                 </p>
                 {!user?.organization?.id && (
                   <p className="mt-2">
@@ -402,7 +406,7 @@ export default function UserManagement() {
                         <div className="flex-shrink-0 h-10 w-10">
                           <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
                             <span className="text-sm font-medium text-gray-700">
-                              {member.firstName[0]}{member.lastName[0]}
+                              {(member.firstName?.[0] || '?')}{(member.lastName?.[0] || '?')}
                             </span>
                           </div>
                         </div>
@@ -451,8 +455,8 @@ export default function UserManagement() {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(member.status)}`}>
-                        {member.status.charAt(0).toUpperCase() + member.status.slice(1)}
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(member.status || '')}`}>
+                        {member.status ? member.status.charAt(0).toUpperCase() + member.status.slice(1) : 'Unknown'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

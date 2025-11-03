@@ -19,14 +19,16 @@ const Register: React.FC = () => {
   const [register, { isLoading, error }] = useRegisterMutation();
   const [createOrganization, { isLoading: isCreatingOrg, error: createOrgError }] = useCreateOrganizationMutation();
   const [joinOrganization, { isLoading: isJoiningOrg, error: joinOrgError }] = useJoinOrganizationMutation();
-  const [transferAssessment, { isLoading: isTransferring }] = useTransferAnonymousAssessmentMutation();
+  const [transferAssessment] = useTransferAnonymousAssessmentMutation();
   
   const [currentStep, setCurrentStep] = useState<RegistrationStep>('account');
   const [userCredentials, setUserCredentials] = useState<any>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isTransferringAssessment, setIsTransferringAssessment] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [hasAnonymousAssessment, setHasAnonymousAssessment] = useState(false);
 
   // Get anonymous assessment data from navigation state or session storage
   const fromAnonymousAssessment = location.state?.fromAnonymousAssessment;
@@ -34,7 +36,6 @@ const Register: React.FC = () => {
   const anonymousAssessmentId = location.state?.assessmentId;
   
   // Also check session storage for completed anonymous assessment
-  const storedAnonymousResult = getAnonymousAssessmentResult();
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -64,6 +65,15 @@ const Register: React.FC = () => {
   useEffect(() => {
     setIsLoaded(true);
     
+    // Check for anonymous assessment
+    const checkAnonymousAssessment = () => {
+      const hasStateAssessment = location.state?.sessionId && location.state?.assessmentId;
+      const storedResult = getAnonymousAssessmentResult();
+      setHasAnonymousAssessment(hasStateAssessment || !!storedResult);
+    };
+    
+    checkAnonymousAssessment();
+    
     const handleMouseMove = (e: MouseEvent) => {
       setMousePosition({ x: e.clientX, y: e.clientY });
     };
@@ -85,34 +95,6 @@ const Register: React.FC = () => {
   const orgError = createOrgError || joinOrgError;
 
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
-
-  // Helper function to handle anonymous assessment transfer
-  const handleAnonymousAssessmentTransfer = async (userId: string) => {
-    // Check both navigation state and session storage for anonymous assessment data
-    const sessionId = anonymousSessionId || storedAnonymousResult?.sessionId;
-    const assessmentId = anonymousAssessmentId || storedAnonymousResult?.assessmentId;
-
-    if (sessionId && assessmentId && userId) {
-      try {
-        await transferAssessment({
-          sessionId: sessionId,
-          userId: userId,
-        }).unwrap();
-        
-        // Clear anonymous session data
-        clearAnonymousSession();
-        
-        // Navigate to assessment results
-        navigate(`/defendx/results/${assessmentId}`);
-        return true; // Indicate transfer was successful
-      } catch (transferErr: any) {
-        console.error('Failed to transfer assessment:', transferErr);
-        // Continue with normal flow even if transfer fails
-        return false;
-      }
-    }
-    return false;
-  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type, checked } = e.target as HTMLInputElement;
@@ -137,6 +119,40 @@ const Register: React.FC = () => {
     // Clear field error when user starts typing
     if (formErrors[name]) {
       setFormErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  // Helper function to handle assessment transfer with loading state and error handling
+  const handleAssessmentTransfer = async (
+    sessionId: string,
+    assessmentId: string,
+    userId: string,
+    organizationId: string
+  ) => {
+    setIsTransferringAssessment(true);
+    try {
+      await transferAssessment({
+        sessionId,
+        userId,
+        organizationId,
+      }).unwrap();
+      
+      // Clear anonymous session data
+      clearAnonymousSession();
+      
+      // Navigate to assessment results
+      navigate(`/defendx/results/${assessmentId}`);
+      return true;
+    } catch (err: any) {
+      console.error('Failed to transfer assessment:', err);
+      // Show error message to user
+      setFormErrors(prev => ({
+        ...prev,
+        transfer: 'Failed to transfer assessment. You can try again from the dashboard.'
+      }));
+      return false;
+    } finally {
+      setIsTransferringAssessment(false);
     }
   };
 
@@ -249,43 +265,29 @@ const Register: React.FC = () => {
         const sessionToTransfer = storedResult?.sessionId;
         const assessmentToTransfer = storedResult?.assessmentId;
         const organizationId = result.user?.organizationId || result.user?.organization?.id;
+        
         if (sessionToTransfer && assessmentToTransfer && result.user?.id && organizationId) {
-          try {
-            await transferAssessment({
-              sessionId: sessionToTransfer,
-              userId: result.user.id,
-              organizationId: organizationId,
-            }).unwrap();
-            clearAnonymousSession();
-            navigate(`/defendx/results/${assessmentToTransfer}`);
-            return;
-          } catch (transferErr: any) {
-            console.error('Failed to transfer stored anonymous assessment after register:', transferErr);
-            // fall through to normal flow
-          }
+          const transferred = await handleAssessmentTransfer(
+            sessionToTransfer,
+            assessmentToTransfer,
+            result.user.id,
+            organizationId
+          );
+          if (transferred) return;
         }
       }
+      
       // If coming from anonymous assessment, transfer it to the authenticated user
       if (fromAnonymousAssessment && anonymousSessionId && result.user?.id) {
         const organizationId = result.user?.organizationId || result.user?.organization?.id;
         if (organizationId) {
-          try {
-            await transferAssessment({
-              sessionId: anonymousSessionId,
-              userId: result.user.id,
-              organizationId: organizationId,
-            }).unwrap();
-            
-            // Clear anonymous session data
-            clearAnonymousSession();
-            
-            // Navigate to assessment results
-            navigate(`/defendx/results/${anonymousAssessmentId}`);
-            return; // Early return to prevent normal flow
-          } catch (transferErr: any) {
-            console.error('Failed to transfer assessment:', transferErr);
-            // Continue with normal flow even if transfer fails
-          }
+          const transferred = await handleAssessmentTransfer(
+            anonymousSessionId,
+            anonymousAssessmentId || '',
+            result.user.id,
+            organizationId
+          );
+          if (transferred) return;
         }
       }
 
@@ -313,71 +315,74 @@ const Register: React.FC = () => {
     try {
       let organizationId: string | undefined;
 
+      // Create or join organization based on selected action
       if (orgData.action === 'create') {
+        console.log('Creating new organization...');
         const createResult = await createOrganization({
           name: orgData.organizationName,
-          sector: orgData.industry as any, // Convert string to Sector enum
+          sector: orgData.industry as any,
           email: orgData.email,
-          size: orgData.size as any, // Convert string to OrganizationSize enum
+          size: orgData.size as any,
           description: orgData.description,
         }).unwrap();
-        organizationId = createResult.data?.id;
+        organizationId = createResult.id;
+        console.log('Organization created successfully with ID:', organizationId);
       } else if (orgData.action === 'join') {
+        console.log('Joining organization with invite code...');
         const joinResult = await joinOrganization({
           inviteCode: orgData.inviteCode,
         }).unwrap();
         organizationId = joinResult.data?.organization?.id;
+        console.log('Joined organization with ID:', organizationId);
       } else if (orgData.action === 'browse') {
+        console.log('Joining selected organization...');
         const joinResult = await joinOrganization({
           organizationId: orgData.selectedOrgId,
         }).unwrap();
         organizationId = joinResult.data?.organization?.id || orgData.selectedOrgId;
+        console.log('Joined selected organization with ID:', organizationId);
       }
 
-      // If coming from anonymous assessment, transfer it after organization setup
-      // First, if registration had stored an anonymous result in session storage (user navigated without explicit state), transfer that
+      if (!organizationId) {
+        console.error('Organization ID not available after creation/join');
+        throw new Error('Failed to get organization ID');
+      }
+
+      // Handle anonymous assessment transfer
+      let assessmentTransferred = false;
+
+      // First check for stored anonymous assessment result
+      console.log('Checking for stored anonymous assessment...');
       const storedResult = getAnonymousAssessmentResult();
-      const sessionToTransfer = storedResult?.sessionId;
-      const assessmentToTransfer = storedResult?.assessmentId;
-
-      if (!fromAnonymousAssessment && sessionToTransfer && assessmentToTransfer && userCredentials?.user?.id && organizationId) {
-        try {
-          await transferAssessment({
-            sessionId: sessionToTransfer,
-            userId: userCredentials.user.id,
-            organizationId: organizationId,
-          }).unwrap();
-          clearAnonymousSession();
-          navigate(`/defendx/results/${assessmentToTransfer}`);
-          return; // Early return
-        } catch (transferErr: any) {
-          console.error('Failed to transfer stored anonymous assessment after org setup:', transferErr);
-          // Continue to normal dashboard flow
-        }
+      if (storedResult?.sessionId && storedResult?.assessmentId && userCredentials?.user?.id) {
+        console.log('Found stored anonymous assessment, attempting transfer...');
+        assessmentTransferred = await handleAssessmentTransfer(
+          storedResult.sessionId,
+          storedResult.assessmentId,
+          userCredentials.user.id,
+          organizationId
+        );
       }
 
-      // If user explicitly came from anonymous assessment flow with state, transfer using that
-      if (fromAnonymousAssessment && anonymousSessionId && userCredentials?.user?.id && organizationId) {
-        try {
-          await transferAssessment({
-            sessionId: anonymousSessionId,
-            userId: userCredentials.user.id,
-            organizationId: organizationId,
-          }).unwrap();
-          
-          // Clear anonymous session data
-          clearAnonymousSession();
-          
-          // Navigate to assessment results
-          navigate(`/defendx/results/${anonymousAssessmentId}`);
-          return; // Early return
-        } catch (transferErr: any) {
-          console.error('Failed to transfer assessment:', transferErr);
-          // Continue to dashboard even if transfer fails
-        }
+      // If no stored result was transferred, check for assessment from navigation state
+      if (!assessmentTransferred && fromAnonymousAssessment && anonymousSessionId && userCredentials?.user?.id) {
+        console.log('Found anonymous assessment from navigation, attempting transfer...');
+        assessmentTransferred = await handleAssessmentTransfer(
+          anonymousSessionId,
+          anonymousAssessmentId || '',
+          userCredentials.user.id,
+          organizationId
+        );
       }
 
-      // Organization operations completed successfully, navigate to dashboard
+      // Navigate based on whether an assessment was transferred
+      if (assessmentTransferred) {
+        console.log('Assessment transferred successfully, navigating to results...');
+        // Navigation to results is handled by handleAssessmentTransfer
+        return;
+      }
+
+      console.log('No assessment to transfer or transfer not needed, navigating to dashboard...');
       navigate('/dashboard');
     } catch (err: any) {
       console.error('Organization setup failed:', err);
@@ -785,6 +790,21 @@ const Register: React.FC = () => {
                     <Building2 className="w-5 h-5 mr-2 text-purple-400" />
                     Organization Setup
                   </h3>
+
+                  {/* Anonymous Assessment Notice */}
+                  {hasAnonymousAssessment && (
+                    <div className="mb-6 bg-blue-500/10 border border-blue-400/30 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <Shield className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <h4 className="text-blue-300 font-medium mb-1">Anonymous Assessment Detected</h4>
+                          <p className="text-sm text-slate-400">
+                            We found your recent assessment results. Complete your organization setup to view your full results and insights.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Action Selection */}
                   <div className="space-y-4">

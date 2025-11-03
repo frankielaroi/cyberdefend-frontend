@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { 
   ChevronLeft, 
   ChevronRight, 
-  CheckCircle, 
-  AlertCircle, 
   Shield,
   Loader2
 } from 'lucide-react';
@@ -216,34 +214,6 @@ export default function AnonymousAssessment() {
     navigate('/register', { state: { fromAnonymousAssessment: true, sessionId, assessmentId } });
   };
 
-  const handleSignInAndView = () => {
-    // Store the session data for transfer after authentication
-    navigate('/login', { state: { fromAnonymousAssessment: true, sessionId, assessmentId } });
-  };
-
-  // Tier color mapping
-  const getTierColor = (tier: string) => {
-    const colors: Record<string, string> = {
-      A: 'text-green-400',
-      B: 'text-blue-400',
-      C: 'text-yellow-400',
-      D: 'text-orange-400',
-      F: 'text-red-400',
-    };
-    return colors[tier] || 'text-gray-400';
-  };
-
-  const getTierBgColor = (tier: string) => {
-    const colors: Record<string, string> = {
-      A: 'bg-green-500/20 border-green-500',
-      B: 'bg-blue-500/20 border-blue-500',
-      C: 'bg-yellow-500/20 border-yellow-500',
-      D: 'bg-orange-500/20 border-orange-500',
-      F: 'bg-red-500/20 border-red-500',
-    };
-    return colors[tier] || 'bg-gray-500/20 border-gray-500';
-  };
-
   if (isCreating || isLoadingQuestions || !assessmentId || !currentQuestion || questions.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
@@ -259,94 +229,86 @@ export default function AnonymousAssessment() {
 
   // Show results screen
   if (assessmentResult) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-        {/* Header */}
-        <header className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div className="flex items-center">
-              <Shield className="w-8 h-8 text-blue-400 mr-3" />
-              <h1 className="text-2xl font-bold">DefendX Assessment</h1>
-            </div>
-          </div>
-        </header>
+    // Get risk level based on score
+    const getRiskLevel = (score: number) => {
+      if (score >= 80) return 'LOW RISK';
+      if (score >= 60) return 'MEDIUM RISK';
+      return 'HIGHRISK';
+    };
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="bg-slate-800/60 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-8 md:p-12">
-            {/* Success Icon */}
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-green-500/20 rounded-full mb-4">
-                <CheckCircle className="w-12 h-12 text-green-400" />
-              </div>
-              <h2 className="text-3xl md:text-4xl font-bold mb-2">Assessment Complete!</h2>
-              <p className="text-slate-300">You've successfully completed the cybersecurity assessment</p>
-            </div>
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 sm:p-6">
+        <div className="max-w-2xl w-full bg-slate-800/60 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-8 md:p-12">
+          {/* Main Content */}
+          <div className="text-center text-white space-y-6">
+            {/* Title */}
+            <h1 className="text-2xl font-bold mb-8">CYBER READINESS SCORE</h1>
 
             {/* Score Display */}
-            <div className="text-center mb-12">
-              <div className={`inline-block px-8 py-4 rounded-2xl border-2 ${getTierBgColor(assessmentResult.tier)} mb-4`}>
-                <div className="text-6xl font-bold mb-2">{assessmentResult.score}</div>
-                <div className="text-xl text-slate-300">out of 100</div>
-              </div>
-              <div className={`text-3xl font-bold ${getTierColor(assessmentResult.tier)} mb-2`}>
-                Tier {assessmentResult.tier}
+            <div className="relative w-48 h-48 mx-auto">
+              <svg className="w-full h-full -rotate-90">
+                <circle
+                  cx="96"
+                  cy="96"
+                  r="88"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.1)"
+                  strokeWidth="12"
+                />
+                <circle
+                  cx="96"
+                  cy="96"
+                  r="88"
+                  fill="none"
+                  stroke="#EF4444"
+                  strokeWidth="12"
+                  strokeDasharray={`${(assessmentResult.score / 100) * 552} 552`}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-4xl font-bold">{assessmentResult.score}</span>
+                <span className="text-lg">/100</span>
               </div>
             </div>
 
-            {/* Call to Action */}
-            <div className="border-t border-slate-700 pt-8">
-              <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl p-6 mb-6">
-                <div className="flex items-start gap-4 mb-6">
-                  <AlertCircle className="w-6 h-6 text-blue-400 flex-shrink-0 mt-1" />
-                  <div>
-                    <h3 className="text-xl font-bold mb-2">Create an Account to View Detailed Results</h3>
-                    <p className="text-slate-300 mb-4">
-                      To access your comprehensive security report, personalized recommendations, 
-                      and track your progress over time, please create a free account or sign in.
-                    </p>
-                    <ul className="text-sm text-slate-400 space-y-2">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-green-400" />
-                        Detailed category breakdown
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-green-400" />
-                        Personalized security recommendations
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-green-400" />
-                        Compare with industry benchmarks
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-green-400" />
-                        Track improvement over time
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
+            {/* Risk Level Badge */}
+            <div className="inline-block bg-red-500 text-white px-4 py-1 rounded-full text-sm font-bold">
+              {getRiskLevel(assessmentResult.score)}
+            </div>
 
-              <div className="flex flex-col sm:flex-row gap-4">
-                <button
-                  onClick={handleAuthenticateAndView}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-8 py-4 rounded-xl font-medium text-lg transition-all duration-300 transform hover:scale-105"
-                >
-                  Create Account & View Results
-                </button>
-                <button
-                  onClick={handleSignInAndView}
-                  className="flex-1 border-2 border-slate-600 hover:border-blue-500 text-slate-300 hover:text-white px-8 py-4 rounded-xl font-medium text-lg transition-all duration-300"
-                >
-                  Sign In & View Results
-                </button>
-              </div>
+            {/* Score Description */}
+            <div className="space-y-4">
+              <p className="text-lg">
+                Your Cyber Readiness Score: {assessmentResult.score}/100 — {getRiskLevel(assessmentResult.score)}
+              </p>
+              <p className="text-sm opacity-90">
+                Based on CSA 2023 Cyber Policy Enforcement Framework, your organization may face regulatory fines or data protection penalties if audited.
+              </p>
+              <p className="text-sm font-medium">
+                You are vulnerable to phishing attacks, customer data loss, and CSA penalties of up to GHS 30.000.
+              </p>
+            </div>
 
+            {/* CSA Policy Section */}
+            <div className="mt-8 space-y-4">
+              <h2 className="text-xl font-bold">CSA POLICY TRIGGER</h2>
+              <p className="text-sm opacity-90">
+                CSA 2023 Cyber Policy Enforcement Framework Ghana Cybersecurity Act 2020 Sections 3 & 7
+              </p>
+            </div>
+
+            {/* CTA Button */}
+            <div className="mt-8">
               <button
-                onClick={() => navigate('/')}
-                className="w-full mt-4 text-slate-400 hover:text-white text-sm transition-colors"
+                onClick={handleAuthenticateAndView}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 px-6 rounded-lg text-lg font-bold transition-all duration-300"
               >
-                Return to Home
+                SUBSCRIBE TO DEFENDX & GET PROTECTED
               </button>
+              <p className="text-sm mt-4">
+                Earn your CSA-aligned DefendX certification today
+              </p>
             </div>
           </div>
         </div>

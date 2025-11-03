@@ -14,7 +14,12 @@ import type {
   PaginatedResponse,
   ApiResponse,
   Alert,
-  SystemScan
+  SystemScan,
+  CreateSMSCampaignDto,
+  LaunchSMSCampaignDto,
+  SMSCampaignResults,
+  SMSCampaignFilters,
+  SMSCampaign
 } from '../../types';
 
 // Enhanced DefendX Plus Types for Backend Integration
@@ -127,7 +132,45 @@ export interface ScanSchedule {
 
 export const defendxPlusApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
-    // Campaign Management
+    // SMS Campaign Management
+    createSMSCampaign: builder.mutation<ApiResponse<SMSCampaign>, CreateSMSCampaignDto>({
+      query: (data) => ({
+        url: '/defendx-plus/campaign/create',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['Campaign'],
+    }),
+
+    launchSMSCampaign: builder.mutation<ApiResponse<void>, LaunchSMSCampaignDto>({
+      query: (data) => ({
+        url: '/defendx-plus/campaign/launch',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['Campaign'],
+    }),
+
+    getSMSCampaignResults: builder.query<ApiResponse<SMSCampaignResults>, string>({
+      query: (campaignId) => `/defendx-plus/campaign/${campaignId}/results`,
+      providesTags: (_result, _error, campaignId) => [
+        { type: 'Campaign', id: campaignId }
+      ],
+    }),
+
+    getSMSCampaigns: builder.query<PaginatedResponse<SMSCampaign>, SMSCampaignFilters>({
+      query: (params = {}) => ({
+        url: '/defendx-plus/campaign',
+        params: {
+          page: params.page || 1,
+          limit: params.limit || 20,
+          ...params,
+        },
+      }),
+      providesTags: ['Campaign'],
+    }),
+
+    // Regular Campaign Management
     getCampaigns: builder.query<CampaignsResponse, CampaignFiltersDto>({
       query: (params = {}) => ({
         url: '/defendx-plus/campaigns',
@@ -616,6 +659,12 @@ export const defendxPlusApi = apiSlice.injectEndpoints({
 });
 
 export const {
+  // SMS Campaign hooks
+  useCreateSMSCampaignMutation,
+  useLaunchSMSCampaignMutation,
+  useGetSMSCampaignResultsQuery,
+  useGetSMSCampaignsQuery,
+  
   // Campaign hooks
   useGetCampaignsQuery,
   useGetCampaignQuery,

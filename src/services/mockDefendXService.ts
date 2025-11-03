@@ -137,19 +137,32 @@ const calculateAssessmentScore = (responses: AssessmentResponse[], questions: Qu
     const question = questions.find(q => q.id === response.questionId);
     if (!question) return;
 
-    maxScore += question.weight;
+    maxScore += question.weight || 0;
 
     if (question.type === 'yes_no') {
-      totalScore += response.answer === 'yes' ? question.weight : 0;
+      totalScore += response.answer === 'yes' ? (question.weight || 0) : 0;
     } else if (question.type === 'rating') {
       const rating = Number(response.answer);
-      totalScore += (rating / 5) * question.weight;
+      totalScore += (rating / 5) * (question.weight || 0);
     } else if (question.type === 'multiple_choice' && question.options) {
       // Simple scoring: first option = full points, last option = no points
-      const optionIndex = question.options.indexOf(response.answer as string);
+      let optionIndex = -1;
+      if (Array.isArray(question.options) && typeof question.options[0] === 'string') {
+        // String array
+        optionIndex = (question.options as string[]).indexOf(response.answer as string);
+      } else if (Array.isArray(question.options) && typeof question.options[0] === 'object') {
+        // Object array - find by value or text
+        const optionObj = (question.options as Array<{id: string, text: string, value: string}>)
+          .find(opt => opt.value === response.answer || opt.text === response.answer);
+        if (optionObj) {
+          optionIndex = (question.options as Array<{id: string, text: string, value: string}>)
+            .indexOf(optionObj);
+        }
+      }
+      
       if (optionIndex !== -1) {
         const optionScore = (question.options.length - optionIndex - 1) / (question.options.length - 1);
-        totalScore += optionScore * question.weight;
+        totalScore += optionScore * (question.weight || 0);
       }
     }
   });
@@ -168,7 +181,7 @@ const getScoreTier = (score: number): 'A' | 'B' | 'C' | 'D' | 'F' => {
 
 // Generate assessment breakdown by category
 const generateAssessmentBreakdown = (responses: AssessmentResponse[], questions: Question[]) => {
-  const categories = [...new Set(questions.map(q => q.category))];
+  const categories = [...new Set(questions.map(q => typeof q.category === 'string' ? q.category : q.category.name))];
   
   return categories.map(category => {
     const categoryQuestions = questions.filter(q => q.category === category);
@@ -183,18 +196,32 @@ const generateAssessmentBreakdown = (responses: AssessmentResponse[], questions:
       const question = categoryQuestions.find(q => q.id === response.questionId);
       if (!question) return;
 
-      maxCategoryScore += question.weight;
+      maxCategoryScore += question.weight || 0;
 
       if (question.type === 'yes_no') {
-        categoryScore += response.answer === 'yes' ? question.weight : 0;
+        categoryScore += response.answer === 'yes' ? (question.weight || 0) : 0;
       } else if (question.type === 'rating') {
         const rating = Number(response.answer);
-        categoryScore += (rating / 5) * question.weight;
+        categoryScore += (rating / 5) * (question.weight || 0);
       } else if (question.type === 'multiple_choice' && question.options) {
-        const optionIndex = question.options.indexOf(response.answer as string);
+        // Handle both string arrays and object arrays
+        let optionIndex = -1;
+        if (Array.isArray(question.options) && typeof question.options[0] === 'string') {
+          // String array
+          optionIndex = (question.options as string[]).indexOf(response.answer as string);
+        } else if (Array.isArray(question.options) && typeof question.options[0] === 'object') {
+          // Object array - find by value or text
+          const optionObj = (question.options as Array<{id: string, text: string, value: string}>)
+            .find(opt => opt.value === response.answer || opt.text === response.answer);
+          if (optionObj) {
+            optionIndex = (question.options as Array<{id: string, text: string, value: string}>)
+              .indexOf(optionObj);
+          }
+        }
+        
         if (optionIndex !== -1) {
           const optionScore = (question.options.length - optionIndex - 1) / (question.options.length - 1);
-          categoryScore += optionScore * question.weight;
+          categoryScore += optionScore * (question.weight || 0);
         }
       }
     });
@@ -211,36 +238,69 @@ const generateAssessmentBreakdown = (responses: AssessmentResponse[], questions:
 };
 
 // Generate recommendations based on score and breakdown
-const generateRecommendations = (score: number, breakdown: any[]): string[] => {
-  const recommendations: string[] = [];
+const generateRecommendations = (score: number, breakdown: any[]) => {
+  const recommendations: Array<{title: string, description: string, priority: 'high' | 'medium' | 'low'}> = [];
 
   if (score < 70) {
-    recommendations.push('Consider conducting a comprehensive security audit to identify critical vulnerabilities.');
+    recommendations.push({
+      title: 'Comprehensive Security Audit',
+      description: 'Consider conducting a comprehensive security audit to identify critical vulnerabilities.',
+      priority: 'high'
+    });
   }
   
   if (score < 80) {
-    recommendations.push('Implement a formal incident response plan and conduct regular drills.');
-    recommendations.push('Enhance employee cybersecurity awareness training programs.');
+    recommendations.push({
+      title: 'Incident Response Plan',
+      description: 'Implement a formal incident response plan and conduct regular drills.',
+      priority: 'high'
+    });
+    recommendations.push({
+      title: 'Employee Training Enhancement',
+      description: 'Enhance employee cybersecurity awareness training programs.',
+      priority: 'medium'
+    });
   }
 
   // Category-specific recommendations
   breakdown.forEach(cat => {
     if (cat.percentage < 70) {
-      switch (cat.category.toLowerCase()) {
+      switch (typeof cat.category === 'string' ? cat.category.toLowerCase() : cat.category.name.toLowerCase()) {
         case 'network security':
-          recommendations.push('Strengthen network security controls including firewalls and intrusion detection systems.');
+          recommendations.push({
+            title: 'Network Security Controls',
+            description: 'Strengthen network security controls including firewalls and intrusion detection systems.',
+            priority: 'high'
+          });
           break;
         case 'data protection':
-          recommendations.push('Implement data encryption and improve backup procedures.');
+          recommendations.push({
+            title: 'Data Protection Measures',
+            description: 'Implement data encryption and improve backup procedures.',
+            priority: 'high'
+          });
           break;
         case 'access control':
-          recommendations.push('Enforce multi-factor authentication and review user access privileges.');
+          recommendations.push({
+            title: 'Access Control Enhancement',
+            description: 'Enforce multi-factor authentication and review user access privileges.',
+            priority: 'medium'
+          });
           break;
         case 'employee training':
-          recommendations.push('Increase frequency and scope of cybersecurity awareness training.');
+        case 'security training':
+          recommendations.push({
+            title: 'Training Program Improvement',
+            description: 'Increase frequency and scope of cybersecurity awareness training.',
+            priority: 'medium'
+          });
           break;
         case 'incident response':
-          recommendations.push('Develop and test incident response procedures.');
+          recommendations.push({
+            title: 'Incident Response Development',
+            description: 'Develop and test incident response procedures.',
+            priority: 'high'
+          });
           break;
       }
     }
@@ -273,8 +333,8 @@ export class MockDefendXService {
     }
 
     const assessments = localStorageService.getAssessmentsByOrganization(currentUser.organizationId);
-    const completedAssessments = assessments.filter(a => a.status === 'completed');
-    const currentAssessment = assessments.find(a => a.status === 'in_progress');
+    const completedAssessments = assessments.filter(a => a.status === 'COMPLETED');
+    const currentAssessment = assessments.find(a => a.status === 'IN_PROGRESS');
 
     const lastCompleted = completedAssessments[completedAssessments.length - 1];
     const averageScore = completedAssessments.reduce((sum, a) => sum + (a.score || 0), 0) / (completedAssessments.length || 1);
@@ -348,7 +408,7 @@ export class MockDefendXService {
     // Update assessment
     const updatedAssessment = {
       ...assessment,
-      status: 'completed' as const,
+      status: 'COMPLETED' as const,
       score,
       tier,
       completedAt: new Date().toISOString(),
@@ -362,7 +422,7 @@ export class MockDefendXService {
       score,
       tier,
       breakdown,
-      recommendations,
+      recommendations: recommendations.map(r => r.title),
       benchmarks: {
         sector: 75.8,
         region: 78.2,
@@ -380,7 +440,7 @@ export class MockDefendXService {
       throw new Error('Assessment not found');
     }
 
-    if (assessment.status !== 'completed') {
+    if (assessment.status !== 'COMPLETED') {
       throw new Error('Assessment is not completed');
     }
 
@@ -392,7 +452,7 @@ export class MockDefendXService {
       score: assessment.score || 0,
       tier: assessment.tier || 'F',
       breakdown,
-      recommendations,
+      recommendations: recommendations.map(r => r.title),
       benchmarks: {
         sector: 75.8,
         region: 78.2,
@@ -410,7 +470,7 @@ export class MockDefendXService {
       throw new Error('Assessment not found');
     }
 
-    if (assessment.status !== 'completed') {
+    if (assessment.status !== 'COMPLETED') {
       throw new Error('Assessment is not completed');
     }
 
@@ -426,7 +486,7 @@ export class MockDefendXService {
     }
 
     const assessments = localStorageService.getAssessmentsByOrganization(currentUser.organizationId);
-    const completedAssessments = assessments.filter(a => a.status === 'completed');
+    const completedAssessments = assessments.filter(a => a.status === 'COMPLETED');
     
     if (completedAssessments.length === 0) {
       throw new Error('No completed assessments found');

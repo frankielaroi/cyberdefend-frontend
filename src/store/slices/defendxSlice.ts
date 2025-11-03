@@ -29,7 +29,7 @@ const defendxSlice = createSlice({
     // Set current assessment (after creating or fetching)
     setCurrentAssessment: (state, action: PayloadAction<Assessment>) => {
       state.currentAssessment = action.payload;
-      state.assessmentStarted = action.payload.status === 'in_progress';
+      state.assessmentStarted = action.payload.status === 'IN_PROGRESS';
     },
     
     // Load assessment with questions (new flow)
@@ -41,7 +41,7 @@ const defendxSlice = createSlice({
       state.currentAssessment = action.payload.assessment;
       state.currentQuestions = action.payload.questions;
       state.responses = action.payload.existingResponses || [];
-      state.assessmentStarted = action.payload.assessment.status === 'in_progress';
+      state.assessmentStarted = action.payload.assessment.status === 'IN_PROGRESS';
       // Set current question index to first unanswered question
       const answeredQuestionIds = new Set(state.responses.map(r => r.questionId));
       state.currentQuestionIndex = state.currentQuestions.findIndex(q => !answeredQuestionIds.has(q.id));
@@ -99,13 +99,13 @@ const defendxSlice = createSlice({
     markAssessmentStarted: (state) => {
       state.assessmentStarted = true;
       if (state.currentAssessment) {
-        state.currentAssessment.status = 'in_progress';
+        state.currentAssessment.status = 'IN_PROGRESS';
       }
     },
 
     markAssessmentCompleted: (state) => {
       if (state.currentAssessment) {
-        state.currentAssessment.status = 'completed';
+        state.currentAssessment.status = 'COMPLETED';
         state.currentAssessment.completedAt = new Date().toISOString();
       }
     },

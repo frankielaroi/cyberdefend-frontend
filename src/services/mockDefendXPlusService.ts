@@ -32,13 +32,13 @@ interface LaunchCampaignDto {
 
 interface CampaignResultsDto {
   targetCount: number;
-  deliveredCount: any;
-  openedCount: any;
-  clickedCount: any;
-  reportedCount: any;
-  name: ReactNode;
+  deliveredCount: number;
+  openedCount: number;
+  clickedCount: number;
+  reportedCount: number;
+  name: string;
   status: string;
-  startDate: any;
+  startDate: string;
   campaign: PhishingCampaign;
   timeline: Array<{
     timestamp: string;
@@ -336,6 +336,7 @@ export class MockDefendXPlusService {
       id: generateId(),
       name: campaignData.name,
       description: campaignData.description,
+      templateId: 'template-1', // Default template ID
       organizationId: currentUser.organizationId,
       status: 'DRAFT',
       template: campaignData.template,
@@ -344,10 +345,14 @@ export class MockDefendXPlusService {
       senderEmail: campaignData.senderEmail,
       landingPageUrl: campaignData.landingPageUrl,
       targetCount: campaignData.targets.length,
-      deliveredCount: 0,
-      openedCount: 0,
-      clickedCount: 0,
-      reportedCount: 0,
+      emailsSent: 0,
+      emailsDelivered: 0,
+      emailsOpened: 0,
+      linksClicked: 0,
+      credentialsEntered: 0,
+      phishingReported: 0,
+      emailsBounced: 0,
+      createdBy: currentUser.id,
       scheduledAt: campaignData.scheduledAt,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -387,23 +392,31 @@ export class MockDefendXPlusService {
 
     // Generate mock timeline
     const timeline = [
-      { timestamp: campaign.startDate || campaign.createdAt, event: 'delivered' as const, count: campaign.deliveredCount },
-      { timestamp: new Date(Date.now() - 3600000).toISOString(), event: 'opened' as const, count: campaign.openedCount },
-      { timestamp: new Date(Date.now() - 1800000).toISOString(), event: 'clicked' as const, count: campaign.clickedCount },
-      { timestamp: new Date(Date.now() - 900000).toISOString(), event: 'reported' as const, count: campaign.reportedCount }
+      { timestamp: campaign.launchedAt || campaign.createdAt, event: 'delivered' as const, count: campaign.emailsDelivered },
+      { timestamp: new Date(Date.now() - 3600000).toISOString(), event: 'opened' as const, count: campaign.emailsOpened },
+      { timestamp: new Date(Date.now() - 1800000).toISOString(), event: 'clicked' as const, count: campaign.linksClicked },
+      { timestamp: new Date(Date.now() - 900000).toISOString(), event: 'reported' as const, count: campaign.phishingReported }
     ].filter(item => item.count > 0);
 
     // Generate mock targets
     const targets = Array.from({ length: campaign.targetCount }, (_, i) => ({
       email: `user${i + 1}@example.com`,
-      delivered: i < campaign.deliveredCount,
-      opened: i < campaign.openedCount,
-      clicked: i < campaign.clickedCount,
-      reported: i < campaign.reportedCount,
-      timestamp: i < campaign.deliveredCount ? campaign.startDate : undefined
+      delivered: i < campaign.emailsDelivered,
+      opened: i < campaign.emailsOpened,
+      clicked: i < campaign.linksClicked,
+      reported: i < campaign.phishingReported,
+      timestamp: i < campaign.emailsDelivered ? campaign.launchedAt : undefined
     }));
 
     return {
+      targetCount: campaign.targetCount,
+      deliveredCount: campaign.emailsDelivered,
+      openedCount: campaign.emailsOpened,
+      clickedCount: campaign.linksClicked,
+      reportedCount: campaign.phishingReported,
+      name: campaign.name,
+      status: campaign.status,
+      startDate: campaign.launchedAt || campaign.createdAt,
       campaign,
       timeline,
       targets

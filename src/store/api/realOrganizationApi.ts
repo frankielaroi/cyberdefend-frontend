@@ -116,7 +116,7 @@ export interface GetMembersParams {
 export const organizationApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     // Create new organization
-    createOrganization: builder.mutation<ApiResponse<Organization>, CreateOrganizationRequest>({
+    createOrganization: builder.mutation<Organization, CreateOrganizationRequest>({
       query: (orgData) => ({
         url: '/organizations',
         method: 'POST',
@@ -183,7 +183,7 @@ export const organizationApi = apiSlice.injectEndpoints({
     }),
 
     // Get organization members
-    getOrganizationMembers: builder.query<PaginatedResponse<OrganizationMember>, { orgId: string; params?: GetMembersParams }>({
+    getOrganizationMembers: builder.query<OrganizationMember[], { orgId: string; params?: GetMembersParams }>({
       query: ({ orgId, params = {} }) => ({
         url: `/organizations/${orgId}/members`,
         params: {

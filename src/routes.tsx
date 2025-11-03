@@ -19,6 +19,8 @@ import MonitoringDashboard from './components/defendxplus/MonitoringDashboard';
 import ScanReports from './components/defendxplus/ScanReports';
 import CreateCampaignPage from './components/defendxplus/CreateCampaignPage';
 import CampaignDetails from './components/defendxplus/CampaignDetails';
+import SMSCampaignManager from './components/defendxplus/SMSCampaignManager';
+import SMSCampaignDetails from './components/defendxplus/SMSCampaignDetails';
 import TemplateManager from './components/defendxplus/TemplateManager';
 import AdminDashboard from './components/admin/AdminDashboard';
 import QuestionManager from './components/admin/QuestionManager';
@@ -134,6 +136,22 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
             <CampaignDetails />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'defendxplus/sms-campaigns',
+        element: (
+          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
+            <SMSCampaignManager />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'defendxplus/sms-campaigns/:id',
+        element: (
+          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
+            <SMSCampaignDetails />
           </ProtectedRoute>
         ),
       },

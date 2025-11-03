@@ -1,5 +1,7 @@
 export type UserRole = 'SUPER_ADMIN' | 'CSA_ADMIN' | 'ORG_ADMIN' | 'ORG_MANAGER' | 'END_USER';
 
+export * from './sms-campaign';
+
 export enum OrganizationSize {
   MICRO = 'MICRO',           // 1-5 employees
   SMALL = 'SMALL',           // 6-50 employees
