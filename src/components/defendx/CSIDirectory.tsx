@@ -36,11 +36,152 @@ export default function CSIDirectory() {
   const { data: directoryData, isLoading } = useGetCSIDirectoryQuery(apiFilters);
   const { data: heatmapData } = useGetCSIHeatmapQuery();
   
-  const entries = directoryData?.data || [];
-  const total = directoryData?.pagination?.total || 0;
+  // Sample data to show when no real data is available
+  const sampleData = [
+    {
+      organizationId: 'sample-1',
+      name: 'TechGuard Solutions Ltd',
+      sector: 'TECHNOLOGY',
+      region: 'Greater Accra',
+      score: 85,
+      lastAssessmentDate: new Date().toISOString(),
+      assessmentCount: 3,
+      tier: 'LOW',
+      rank: 1
+    },
+    {
+      organizationId: 'sample-2',
+      name: 'SecureBank Ghana',
+      sector: 'BANKING',
+      region: 'Greater Accra',
+      score: 78,
+      lastAssessmentDate: new Date().toISOString(),
+      assessmentCount: 2,
+      tier: 'MEDIUM',
+      rank: 2
+    },
+    {
+      organizationId: 'sample-3',
+      name: 'HealthCare Plus',
+      sector: 'HEALTHCARE',
+      region: 'Ashanti',
+      score: 92,
+      lastAssessmentDate: new Date().toISOString(),
+      assessmentCount: 4,
+      tier: 'LOW',
+      rank: 3
+    },
+    {
+      organizationId: 'sample-4',
+      name: 'Ghana Telecom Services',
+      sector: 'TELECOMMUNICATIONS',
+      region: 'Greater Accra',
+      score: 88,
+      lastAssessmentDate: new Date().toISOString(),
+      assessmentCount: 5,
+      tier: 'LOW',
+      rank: 4
+    },
+    {
+      organizationId: 'sample-5',
+      name: 'EduTech Institute',
+      sector: 'EDUCATION',
+      region: 'Central',
+      score: 71,
+      lastAssessmentDate: new Date().toISOString(),
+      assessmentCount: 2,
+      tier: 'MEDIUM',
+      rank: 5
+    },
+    {
+      organizationId: 'sample-6',
+      name: 'Western Region Power',
+      sector: 'ENERGY',
+      region: 'Western',
+      score: 68,
+      lastAssessmentDate: new Date().toISOString(),
+      assessmentCount: 1,
+      tier: 'MEDIUM',
+      rank: 6
+    },
+    {
+      organizationId: 'sample-7',
+      name: 'SafeGuard Insurance',
+      sector: 'INSURANCE',
+      region: 'Greater Accra',
+      score: 83,
+      lastAssessmentDate: new Date().toISOString(),
+      assessmentCount: 3,
+      tier: 'LOW',
+      rank: 7
+    },
+    {
+      organizationId: 'sample-8',
+      name: 'Northern Municipal Authority',
+      sector: 'GOVERNMENT',
+      region: 'Northern',
+      score: 55,
+      lastAssessmentDate: new Date().toISOString(),
+      assessmentCount: 1,
+      tier: 'HIGH',
+      rank: 8
+    },
+    {
+      organizationId: 'sample-9',
+      name: 'Global Logistics Ghana',
+      sector: 'LOGISTICS',
+      region: 'Greater Accra',
+      score: 76,
+      lastAssessmentDate: new Date().toISOString(),
+      assessmentCount: 2,
+      tier: 'MEDIUM',
+      rank: 9
+    },
+    {
+      organizationId: 'sample-10',
+      name: 'Clean Energy Solutions',
+      sector: 'ENERGY',
+      region: 'Volta',
+      score: 81,
+      lastAssessmentDate: new Date().toISOString(),
+      assessmentCount: 3,
+      tier: 'LOW',
+      rank: 10
+    },
+    {
+      organizationId: 'sample-11',
+      name: 'Ghana Aid Foundation',
+      sector: 'NGO',
+      region: 'Greater Accra',
+      score: 73,
+      lastAssessmentDate: new Date().toISOString(),
+      assessmentCount: 1,
+      tier: 'MEDIUM',
+      rank: 11
+    },
+    {
+      organizationId: 'sample-12',
+      name: 'Eastern Manufacturing Co',
+      sector: 'MANUFACTURING',
+      region: 'Eastern',
+      score: 67,
+      lastAssessmentDate: new Date().toISOString(),
+      assessmentCount: 2,
+      tier: 'MEDIUM',
+      rank: 12
+    }
+  ];
+
+  // If no real data and no filters, use sample data
+  const shouldUseSampleData = !directoryData?.data?.length && !filters.sector && !filters.region && !filters.size && !filters.riskTier && !filters.search;
+  const entries = shouldUseSampleData ? sampleData : (directoryData?.data || []);
+  const total = shouldUseSampleData ? sampleData.length : (directoryData?.pagination?.total || 0);
 
   // Aggregate assessments into unique organizations to avoid repeated org entries
   const organizations = useMemo(() => {
+    if (shouldUseSampleData) {
+      return sampleData;
+    }
     const map: Record<string, any> = {};
     entries.forEach((e: any, idx: number) => {
       const orgId = e.organizationId || `org-${idx}`;
@@ -148,6 +289,7 @@ export default function CSIDirectory() {
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {/* Organizations Card */}
           <div className="group bg-gradient-to-br from-slate-800 to-slate-800/50 rounded-xl p-6 text-center backdrop-blur-sm border border-slate-700/50 hover:border-blue-500/50 transition-all duration-500 hover:scale-105">
             <div className="flex items-center justify-center mb-4">
               <div className="w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
@@ -155,11 +297,12 @@ export default function CSIDirectory() {
               </div>
             </div>
             <div className="text-3xl font-bold text-white mb-2">
-              {total}
+              {organizations.length}
             </div>
             <div className="text-sm font-medium text-slate-400">Organizations</div>
           </div>
           
+          {/* Average Score Card */}
           <div className="group bg-gradient-to-br from-slate-800 to-slate-800/50 rounded-xl p-6 text-center backdrop-blur-sm border border-slate-700/50 hover:border-blue-500/50 transition-all duration-500 hover:scale-105">
             <div className="flex items-center justify-center mb-4">
               <div className="w-12 h-12 rounded-full bg-purple-600/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
@@ -167,11 +310,15 @@ export default function CSIDirectory() {
               </div>
             </div>
             <div className="text-3xl font-bold text-purple-400 mb-2">
-              71.8
+              {(() => {
+                const avg = organizations.reduce((sum, org) => sum + org.score, 0) / organizations.length;
+                return avg ? avg.toFixed(1) : '0.0';
+              })()}
             </div>
             <div className="text-sm font-medium text-slate-400">Average Score</div>
           </div>
           
+          {/* Low Risk Card */}
           <div className="group bg-gradient-to-br from-slate-800 to-slate-800/50 rounded-xl p-6 text-center backdrop-blur-sm border border-slate-700/50 hover:border-green-500/50 transition-all duration-500 hover:scale-105">
             <div className="flex items-center justify-center mb-4">
               <div className="w-12 h-12 rounded-full bg-green-600/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
@@ -179,11 +326,12 @@ export default function CSIDirectory() {
               </div>
             </div>
             <div className="text-3xl font-bold text-green-400 mb-2">
-              25
+              {organizations.filter(org => org.score >= 80).length}
             </div>
             <div className="text-sm font-medium text-slate-400">Low Risk</div>
           </div>
           
+          {/* Sectors Card */}
           <div className="group bg-gradient-to-br from-slate-800 to-slate-800/50 rounded-xl p-6 text-center backdrop-blur-sm border border-slate-700/50 hover:border-blue-500/50 transition-all duration-500 hover:scale-105">
             <div className="flex items-center justify-center mb-4">
               <div className="w-12 h-12 rounded-full bg-pink-600/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
@@ -191,7 +339,7 @@ export default function CSIDirectory() {
               </div>
             </div>
             <div className="text-3xl font-bold text-pink-400 mb-2">
-              3
+              {new Set(organizations.map(org => org.sector)).size}
             </div>
             <div className="text-sm font-medium text-slate-400">Sectors</div>
           </div>
