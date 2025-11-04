@@ -8,6 +8,9 @@ import VerifyEmail from './components/auth/VerifyEmail';
 import DashboardLayout from './components/layout/DashboardLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleBasedDashboard from './components/dashboard/RoleBasedDashboard';
+import { BackupLayout } from './components/backup/BackupLayout';
+import { BackupList } from './components/backup/BackupList';
+import { BackupAgentList } from './components/backup/BackupAgentList';
 
 import AssessmentDashboard from './components/defendx/AssessmentDashboard';
 import StartAssessment from './components/defendx/StartAssessment';
@@ -34,7 +37,8 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <LandingPage />,
-  },
+    },
+  
   {
     path: '/login',
     element: <Login />,
@@ -243,6 +247,23 @@ export const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      {
+        path: 'backup',
+        element: (
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'CSA_ADMIN', 'ORG_ADMIN']}>
+            <BackupLayout />
+          </ProtectedRoute>
+        ),
+        children: [
+          {
+            path: '',
+            element: <BackupList />,
+          },
+          {
+            path: 'agents',
+            element: <BackupAgentList />,
+          },
+        ],
+      },
     ],
-  },
-]);
+  },]);

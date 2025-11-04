@@ -15,6 +15,7 @@ import {
   UserIcon,
   PencilSquareIcon,
   Cog6ToothIcon,
+  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 
 export interface NavigationItem {
@@ -38,6 +39,12 @@ export const navigationConfig: RoleNavigation = {
       href: '/dashboard',
       icon: HomeIcon,
       description: 'System overview and analytics'
+    },
+    {
+      name: 'Backups',
+      href: '/dashboard/backup',
+      icon: ArrowDownTrayIcon,
+      description: 'Manage system backups'
     },
     {
       name: 'Admin',
@@ -81,6 +88,12 @@ export const navigationConfig: RoleNavigation = {
       description: 'CSA overview and analytics'
     },
     {
+      name: 'Backups',
+      href: '/dashboard/backup',
+      icon: ArrowDownTrayIcon,
+      description: 'Manage system backups'
+    },
+    {
       name: 'Admin',
       href: '/dashboard/admin',
       icon: CogIcon,
@@ -108,6 +121,12 @@ export const navigationConfig: RoleNavigation = {
       href: '/dashboard',
       icon: HomeIcon,
       description: 'Organization overview'
+    },
+    {
+      name: 'Backups',
+      href: '/dashboard/backup',
+      icon: ArrowDownTrayIcon,
+      description: 'Manage organization backups'
     },
     {
       name: 'DefendX',
