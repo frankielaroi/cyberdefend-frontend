@@ -407,18 +407,35 @@ export const assessmentApi = apiSlice.injectEndpoints({
 
     // ============ ANONYMOUS ASSESSMENT ENDPOINTS ============
     
+    // Check anonymous session validity (public endpoint)
+    checkAnonymousSession: builder.query<{
+      valid: boolean;
+      assessmentId?: string;
+      expiresAt?: string;
+    }, string>({
+      query: (sessionId: string) => ({
+        url: `/defendx/assessments/anonymous/check/${sessionId}`,
+      }),
+      providesTags: ['Assessment'],
+    }),
+
     // Create anonymous assessment (public endpoint - no auth required)
     createAnonymousAssessment: builder.mutation<{
       id: string;
       sessionId: string;
       status: 'DRAFT';
       createdAt: string;
+      expiresAt: string;
       isAnonymous: boolean;
-    }, { sessionId: string }>({
-      query: ({ sessionId }) => ({
+    }, { 
+      sessionId: string;
+      title?: string;
+      type: 'CSI_ASSESSMENT';
+    }>({
+      query: (data: { sessionId: string; title?: string; type: 'CSI_ASSESSMENT' }) => ({
         url: '/defendx/assessments/anonymous',
         method: 'POST',
-        body: { sessionId },
+        body: data,
       }),
       invalidatesTags: ['Assessment'],
     }),
@@ -433,7 +450,15 @@ export const assessmentApi = apiSlice.injectEndpoints({
         timeSpent?: number;
       }>;
     }>({
-      query: ({ assessmentId, sessionId, responses }) => ({
+      query: ({ assessmentId, sessionId, responses }: {
+        assessmentId: string;
+        sessionId: string;
+        responses: Array<{
+          questionId: string;
+          answer: string | number;
+          timeSpent?: number;
+        }>;
+      }) => ({
         url: `/defendx/assessments/${assessmentId}/responses/bulk/anonymous`,
         method: 'POST',
         body: {
@@ -444,7 +469,7 @@ export const assessmentApi = apiSlice.injectEndpoints({
           })),
         },
       }),
-      invalidatesTags: (_result, _error, { assessmentId }) => [
+      invalidatesTags: (_result: unknown, _error: unknown, { assessmentId }: { assessmentId: string }) => [
         { type: 'Assessment', id: assessmentId },
       ],
     }),
@@ -462,12 +487,12 @@ export const assessmentApi = apiSlice.injectEndpoints({
       assessmentId: string;
       sessionId: string;
     }>({
-      query: ({ assessmentId, sessionId }) => ({
+      query: ({ assessmentId, sessionId }: { assessmentId: string; sessionId: string }) => ({
         url: `/defendx/assessments/${assessmentId}/complete/anonymous`,
         method: 'POST',
         body: { sessionId },
       }),
-      invalidatesTags: (_result, _error, { assessmentId }) => [
+      invalidatesTags: (_result: unknown, _error: unknown, { assessmentId }: { assessmentId: string }) => [
         { type: 'Assessment', id: assessmentId },
         'Assessment'
       ],
@@ -485,7 +510,11 @@ export const assessmentApi = apiSlice.injectEndpoints({
       userId: string;
       organizationId: string;
     }>({
-      query: ({ sessionId, userId, organizationId }) => ({
+      query: ({ sessionId, userId, organizationId }: {
+        sessionId: string;
+        userId: string;
+        organizationId: string;
+      }) => ({
         url: '/defendx/assessments/transfer',
         method: 'POST',
         body: { sessionId, userId, organizationId },
@@ -493,7 +522,7 @@ export const assessmentApi = apiSlice.injectEndpoints({
       invalidatesTags: ['Assessment'],
     }),
 
-    // Get all questions (public endpoint - no auth required)
+    // Get all questions (public endpoint - no auth needed)
     getQuestions: builder.query<{
       categories: Array<{
         category: string;
@@ -508,7 +537,6 @@ export const assessmentApi = apiSlice.injectEndpoints({
     }),
   }),
 });
-
 export const {
   useCreateAssessmentMutation,
   useStartAssessmentMutation,
@@ -537,5 +565,6 @@ export const {
   useSubmitAnonymousResponsesMutation,
   useCompleteAnonymousAssessmentMutation,
   useTransferAnonymousAssessmentMutation,
+  useLazyCheckAnonymousSessionQuery,
   useGetQuestionsQuery,
 } = assessmentApi;

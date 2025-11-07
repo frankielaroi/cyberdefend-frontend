@@ -11,11 +11,12 @@ import {
   useSubmitAnonymousResponsesMutation,
   useCompleteAnonymousAssessmentMutation,
   useGetQuestionsQuery,
+  useLazyCheckAnonymousSessionQuery
 } from '../../store/api/realDefendXApi';
+import type { Question } from '../../types';
 import {
   getOrCreateSessionId,
   storeAnonymousAssessmentId,
-  getAnonymousAssessmentId,
   storeAnonymousResponses,
   getAnonymousResponses,
   storeAnonymousAssessmentResult,
@@ -48,16 +49,22 @@ export default function AnonymousAssessment() {
   const [createAnonymousAssessment, { isLoading: isCreating }] = useCreateAnonymousAssessmentMutation();
   const [submitAnonymousResponses, { isLoading: isSubmitting }] = useSubmitAnonymousResponsesMutation();
   const [completeAnonymousAssessment, { isLoading: isCompleting }] = useCompleteAnonymousAssessmentMutation();
+  const [checkSession] = useLazyCheckAnonymousSessionQuery();
 
   // Fetch questions from backend (public endpoint - no auth needed)
   const { data: questionsData, isLoading: isLoadingQuestions } = useGetQuestionsQuery();
 
-  // Flatten questions from categories structure and preserve category info
+  interface Category {
+    category: string;
+    questions: Question[];
+  }
+
+  // Get questions with their categories
   const questions = questionsData?.categories
-    ? questionsData.categories.flatMap((cat) => 
-        cat.questions.map(q => ({
+    ? questionsData.categories.flatMap((cat: Category) => 
+        cat.questions.map((q) => ({
           ...q,
-          category: q.category || cat.category // Ensure category is set
+          category: cat.category
         }))
       )
     : [];
@@ -66,24 +73,55 @@ export default function AnonymousAssessment() {
   const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
 
+  interface QuestionOption {
+    value: string;
+    text: string;
+  }
+
   // Generate options based on question type
-  const getQuestionOptions = (question: typeof currentQuestion) => {
+  const getQuestionOptions = (question: Question | undefined): QuestionOption[] => {
     if (!question) return [];
 
     // If question already has options, use them
     if (question.options && question.options.length > 0) {
-      return question.options;
+      if (Array.isArray(question.options) && typeof question.options[0] === 'string') {
+        // Convert string array to QuestionOption array
+        return (question.options as string[]).map(opt => ({
+          value: opt,
+          text: opt
+        }));
+      } else if (Array.isArray(question.options) && typeof question.options[0] === 'object') {
+        // Already in correct format or needs id/text mapping
+        return (question.options as Array<{ id?: string; value: string; text: string }>).map(opt => ({
+          value: opt.value || opt.id || opt.text,
+          text: opt.text
+        }));
+      }
     }
 
     // Generate options based on question type
     switch (question.type) {
       case 'yes_no':
-        return ['Yes', 'No'];
+        return [
+          { value: 'Yes', text: 'Yes' },
+          { value: 'No', text: 'No' }
+        ];
       case 'rating':
-        return ['1 - Poor', '2 - Fair', '3 - Good', '4 - Very Good', '5 - Excellent'];
+        return [
+          { value: '1', text: '1 - Poor' },
+          { value: '2', text: '2 - Fair' },
+          { value: '3', text: '3 - Good' },
+          { value: '4', text: '4 - Very Good' },
+          { value: '5', text: '5 - Excellent' }
+        ];
       case 'multiple_choice':
         // Fallback if options are missing
-        return ['Option 1', 'Option 2', 'Option 3', 'Option 4'];
+        return [
+          { value: '1', text: 'Option 1' },
+          { value: '2', text: 'Option 2' },
+          { value: '3', text: 'Option 3' },
+          { value: '4', text: 'Option 4' }
+        ];
       default:
         return [];
     }
@@ -98,24 +136,30 @@ export default function AnonymousAssessment() {
         // Get or create session ID
         const sid = getOrCreateSessionId();
         setSessionId(sid);
-
-        // Check if there's an existing assessment in progress
-        const existingAssessmentId = getAnonymousAssessmentId();
-        const existingResponses = getAnonymousResponses();
-
-        if (existingAssessmentId && existingResponses.length > 0) {
+        
+        // First check if there's a valid session
+        const { data: sessionCheck } = await checkSession(sid);
+        
+        if (sessionCheck?.valid && sessionCheck.assessmentId) {
           // Resume existing assessment
-          setAssessmentId(existingAssessmentId);
+          setAssessmentId(sessionCheck.assessmentId);
+          const existingResponses = getAnonymousResponses();
           setResponses(existingResponses);
           setCurrentQuestionIndex(existingResponses.length);
         } else {
           // Create new anonymous assessment
-          const result = await createAnonymousAssessment({ sessionId: sid }).unwrap();
+          const result = await createAnonymousAssessment({ 
+            sessionId: sid,
+            type: 'CSI_ASSESSMENT' 
+          }).unwrap();
           setAssessmentId(result.id);
           storeAnonymousAssessmentId(result.id);
         }
       } catch (error) {
         console.error('Failed to initialize anonymous assessment:', error);
+        navigate('/error', { 
+          state: { message: 'Failed to initialize assessment. Please try again.' } 
+        });
       }
     };
 
@@ -142,20 +186,27 @@ export default function AnonymousAssessment() {
     setQuestionStartTime(Date.now());
   };
 
-  // Navigate to next question
+  // Navigate to next question and submit response
   const handleNext = async () => {
     if (!currentResponse) return;
 
-    // Submit response to backend (don't block on single response submission)
+    // Submit the response to backend
     try {
       await submitAnonymousResponses({
         assessmentId,
         sessionId,
-        responses: [currentResponse],
+        responses: [{
+          questionId: currentResponse.questionId,
+          answer: currentResponse.answer,
+          timeSpent: currentResponse.timeSpent,
+        }],
       }).unwrap();
     } catch (error) {
       console.error('Failed to submit response:', error);
       // Continue anyway - we'll resubmit all on completion
+      
+      // Show error toast but allow continuing
+      // TODO: Add better error handling UI
     }
 
     if (isLastQuestion) {
@@ -177,26 +228,31 @@ export default function AnonymousAssessment() {
   // Complete assessment
   const handleComplete = async () => {
     try {
-      // Submit all responses first if any are pending
+      // Submit any remaining responses first
       if (responses.length > 0) {
         try {
           await submitAnonymousResponses({
             assessmentId,
             sessionId,
-            responses: responses,
+            responses: responses.map(r => ({
+              questionId: r.questionId,
+              answer: r.answer,
+              timeSpent: r.timeSpent
+            })),
           }).unwrap();
         } catch (submitError) {
           console.error('Failed to submit final responses:', submitError);
+          // Show error toast but continue with completion attempt
         }
       }
 
-      // Now complete the assessment
+      // Complete the assessment
       const result = await completeAnonymousAssessment({
         assessmentId,
         sessionId,
       }).unwrap();
 
-      // Save the completed assessment result to session storage
+      // Store result for transfer after registration/login
       storeAnonymousAssessmentResult({
         sessionId,
         ...result
@@ -210,8 +266,25 @@ export default function AnonymousAssessment() {
 
   // Handle authentication and transfer
   const handleAuthenticateAndView = () => {
-    // Store the session data for transfer after authentication
-    navigate('/register', { state: { fromAnonymousAssessment: true, sessionId, assessmentId } });
+    if (!assessmentResult) return;
+    
+    // Store required data in session storage for transfer after auth
+    const transferData = {
+      ...assessmentResult,
+      sessionId,
+      responseCount: responses.length,
+      totalQuestions: questions.length
+    };
+    storeAnonymousAssessmentResult(transferData);
+    
+    // Navigate to registration page with transfer intent
+    navigate('/register', { 
+      state: { 
+        fromAnonymousAssessment: true,
+        sessionId,
+        assessmentId
+      } 
+    });
   };
 
   if (isCreating || isLoadingQuestions || !assessmentId || !currentQuestion || questions.length === 0) {
@@ -352,9 +425,7 @@ export default function AnonymousAssessment() {
           {/* Category Badge */}
           <div className="mb-6">
             <span className="inline-block px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-full text-sm font-medium text-blue-300">
-              {typeof currentQuestion.category === 'string' 
-                ? currentQuestion.category 
-                : currentQuestion.category?.name || 'General'}
+              {currentQuestion.category || 'General'}
             </span>
           </div>
 
@@ -365,7 +436,7 @@ export default function AnonymousAssessment() {
 
           {/* Answer Options */}
           <div className="space-y-4 mb-12">
-            {questionOptions.map((option, index) => {
+            {questionOptions.map((option: string | { value: string; text: string }, index: number) => {
               const optionValue = typeof option === 'string' ? option : option.value;
               const optionText = typeof option === 'string' ? option : option.text;
               
