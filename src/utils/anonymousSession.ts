@@ -9,7 +9,8 @@ const ANONYMOUS_RESPONSES_KEY = 'defendx_anonymous_responses';
 const ANONYMOUS_RESULT_KEY = 'defendx_anonymous_result';
 
 /**
- * Generate a UUID v4
+ * Generate a UUID v4 (RFC 4122 compliant)
+ * Returns format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
  */
 export function generateSessionId(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -21,16 +22,14 @@ export function generateSessionId(): string {
 
 /**
  * Get or create anonymous session ID
+ * Always creates a new session ID to avoid "already in use" conflicts
  */
 export function getOrCreateSessionId(): string {
   try {
-    let sessionId = sessionStorage.getItem(ANONYMOUS_SESSION_KEY);
-    
-    if (!sessionId) {
-      sessionId = generateSessionId();
-      sessionStorage.setItem(ANONYMOUS_SESSION_KEY, sessionId);
-    }
-    
+    // Always generate a new session ID to avoid conflicts
+    const sessionId = generateSessionId();
+    // Store it but don't rely on retrieval - always create new
+    sessionStorage.setItem(ANONYMOUS_SESSION_KEY, sessionId);
     return sessionId;
   } catch (error) {
     console.error('Failed to get/create session ID:', error);

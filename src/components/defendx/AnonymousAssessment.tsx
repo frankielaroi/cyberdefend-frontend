@@ -11,14 +11,13 @@ import {
   useSubmitAnonymousResponsesMutation,
   useCompleteAnonymousAssessmentMutation,
   useGetQuestionsQuery,
-  useLazyCheckAnonymousSessionQuery
 } from '../../store/api/realDefendXApi';
 import type { Question } from '../../types';
 import {
   getOrCreateSessionId,
+  generateSessionId,
   storeAnonymousAssessmentId,
   storeAnonymousResponses,
-  getAnonymousResponses,
   storeAnonymousAssessmentResult,
 } from '../../utils/anonymousSession';
 
@@ -44,12 +43,13 @@ export default function AnonymousAssessment() {
   const [assessmentResult, setAssessmentResult] = useState<AssessmentResult | null>(null);
   const [sessionId, setSessionId] = useState<string>('');
   const [assessmentId, setAssessmentId] = useState<string>('');
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
   
   const [createAnonymousAssessment, { isLoading: isCreating }] = useCreateAnonymousAssessmentMutation();
   const [submitAnonymousResponses, { isLoading: isSubmitting }] = useSubmitAnonymousResponsesMutation();
   const [completeAnonymousAssessment, { isLoading: isCompleting }] = useCompleteAnonymousAssessmentMutation();
-  const [checkSession] = useLazyCheckAnonymousSessionQuery();
 
   // Fetch questions from backend (public endpoint - no auth needed)
   const { data: questionsData, isLoading: isLoadingQuestions } = useGetQuestionsQuery();
@@ -133,38 +133,28 @@ export default function AnonymousAssessment() {
   useEffect(() => {
     const initializeAssessment = async () => {
       try {
-        // Get or create session ID
-        const sid = getOrCreateSessionId();
-        setSessionId(sid);
+        // Generate a valid UUID v4 session ID for the request
+        const requestSessionId = generateSessionId();
         
-        // First check if there's a valid session
-        const { data: sessionCheck } = await checkSession(sid);
+        // Create new anonymous assessment
+        const result = await createAnonymousAssessment({ 
+          sessionId: requestSessionId,
+          type: 'CSI_ASSESSMENT' 
+        }).unwrap();
         
-        if (sessionCheck?.valid && sessionCheck.assessmentId) {
-          // Resume existing assessment
-          setAssessmentId(sessionCheck.assessmentId);
-          const existingResponses = getAnonymousResponses();
-          setResponses(existingResponses);
-          setCurrentQuestionIndex(existingResponses.length);
-        } else {
-          // Create new anonymous assessment
-          const result = await createAnonymousAssessment({ 
-            sessionId: sid,
-            type: 'CSI_ASSESSMENT' 
-          }).unwrap();
-          setAssessmentId(result.id);
-          storeAnonymousAssessmentId(result.id);
-        }
+        // Use the session ID from the response
+        setSessionId(result.sessionId);
+        setAssessmentId(result.id);
+        storeAnonymousAssessmentId(result.id);
       } catch (error) {
         console.error('Failed to initialize anonymous assessment:', error);
-        navigate('/error', { 
-          state: { message: 'Failed to initialize assessment. Please try again.' } 
-        });
+        setHasError(true);
+        setErrorMessage('We encountered an issue starting your assessment. Please try refreshing the page.');
       }
     };
 
     initializeAssessment();
-  }, []);
+  }, [createAnonymousAssessment]);
 
   // Handle answer selection
   const handleAnswer = (answer: string | number) => {
@@ -288,6 +278,26 @@ export default function AnonymousAssessment() {
   };
 
   if (isCreating || isLoadingQuestions || !assessmentId || !currentQuestion || questions.length === 0) {
+    // Show error if assessment failed to initialize
+    if (hasError) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+          <div className="text-center max-w-md">
+            <h2 className="text-2xl font-bold text-white mb-4">Unable to Start Assessment</h2>
+            <p className="text-slate-300 mb-6">
+              {errorMessage}
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-all"
+            >
+              Refresh Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
         <div className="text-center">
@@ -425,7 +435,11 @@ export default function AnonymousAssessment() {
           {/* Category Badge */}
           <div className="mb-6">
             <span className="inline-block px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-full text-sm font-medium text-blue-300">
-              {currentQuestion.category || 'General'}
+              {currentQuestion?.category ? (
+                typeof currentQuestion.category === 'string' 
+                  ? currentQuestion.category 
+                  : (currentQuestion.category as any)?.name || 'General'
+              ) : 'General'}
             </span>
           </div>
 

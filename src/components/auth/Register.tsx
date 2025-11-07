@@ -26,7 +26,6 @@ const Register: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isTransferringAssessment, setIsTransferringAssessment] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [hasAnonymousAssessment, setHasAnonymousAssessment] = useState(false);
 
@@ -127,10 +126,16 @@ const Register: React.FC = () => {
     sessionId: string,
     assessmentId: string,
     userId: string,
-    organizationId: string
+    organizationId: string,
+    authToken?: string
   ) => {
-    setIsTransferringAssessment(true);
     try {
+      // Wait a moment to ensure Redux state is updated with the new token
+      if (authToken) {
+        // If token is provided, it will be used by the API slice from Redux
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
       await transferAssessment({
         sessionId,
         userId,
@@ -141,7 +146,7 @@ const Register: React.FC = () => {
       clearAnonymousSession();
       
       // Navigate to assessment results
-      navigate(`/defendx/results/${assessmentId}`);
+      navigate(`/dashboard`);
       return true;
     } catch (err: any) {
       console.error('Failed to transfer assessment:', err);
@@ -151,8 +156,6 @@ const Register: React.FC = () => {
         transfer: 'Failed to transfer assessment. You can try again from the dashboard.'
       }));
       return false;
-    } finally {
-      setIsTransferringAssessment(false);
     }
   };
 
@@ -271,7 +274,8 @@ const Register: React.FC = () => {
             sessionToTransfer,
             assessmentToTransfer,
             result.user.id,
-            organizationId
+            organizationId,
+            result.access_token
           );
           if (transferred) return;
         }
@@ -285,7 +289,8 @@ const Register: React.FC = () => {
             anonymousSessionId,
             anonymousAssessmentId || '',
             result.user.id,
-            organizationId
+            organizationId,
+            result.access_token
           );
           if (transferred) return;
         }
@@ -360,7 +365,8 @@ const Register: React.FC = () => {
           storedResult.sessionId,
           storedResult.assessmentId,
           userCredentials.user.id,
-          organizationId
+          organizationId,
+          userCredentials.access_token
         );
       }
 
@@ -371,7 +377,8 @@ const Register: React.FC = () => {
           anonymousSessionId,
           anonymousAssessmentId || '',
           userCredentials.user.id,
-          organizationId
+          organizationId,
+          userCredentials.access_token
         );
       }
 
