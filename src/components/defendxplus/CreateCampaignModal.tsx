@@ -97,6 +97,15 @@ export default function CreateCampaignModal({ onClose, onSuccess }: Props) {
     const targetEmails = formData.targetsText.split('\n').map(e => e.trim()).filter(Boolean);
     const targets = targetEmails.map(email => ({ email }));
 
+    // Convert datetime-local to ISO-8601 format with Z timezone
+    let scheduledAtIso: string | undefined;
+    if (formData.scheduledAt && formData.scheduledAt.trim()) {
+      // datetime-local returns format: YYYY-MM-DDTHH:mm
+      // We need to convert it to ISO-8601: YYYY-MM-DDTHH:mm:00Z
+      const dateTimeLocal = formData.scheduledAt;
+      scheduledAtIso = `${dateTimeLocal}:00Z`;
+    }
+
     try {
       const result = await createCampaign({
         name: formData.name,
@@ -107,7 +116,7 @@ export default function CreateCampaignModal({ onClose, onSuccess }: Props) {
         senderEmail: formData.senderEmail,
         landingPageUrl: formData.landingPageUrl || undefined,
         targets,
-        scheduledAt: formData.scheduledAt || undefined,
+        scheduledAt: scheduledAtIso,
       }).unwrap();
       
       // Show success modal with launch option
@@ -126,14 +135,20 @@ export default function CreateCampaignModal({ onClose, onSuccess }: Props) {
       // Check if campaign has a scheduled date
       const hasSchedule = formData.scheduledAt && formData.scheduledAt.trim() !== '';
       
+      // Convert datetime-local to ISO-8601 format with Z timezone
+      let scheduledAtIso: string | undefined;
+      if (hasSchedule && formData.scheduledAt) {
+        scheduledAtIso = `${formData.scheduledAt}:00Z`;
+      }
+      
       await launchCampaign({
         campaignId: createdCampaign.id,
         launchType: hasSchedule ? 'SCHEDULED' : 'NOW',
-        scheduledAt: hasSchedule ? formData.scheduledAt : undefined
+        scheduledAt: scheduledAtIso
       }).unwrap();
       
       const message = hasSchedule 
-        ? `Campaign scheduled for ${new Date(formData.scheduledAt!).toLocaleString()}!`
+        ? `Campaign scheduled for ${new Date(scheduledAtIso!).toLocaleString()}!`
         : 'Campaign launched successfully!';
       alert(message);
       
