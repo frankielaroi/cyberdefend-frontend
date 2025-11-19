@@ -101,20 +101,9 @@ export default function StartAssessment({ onComplete }: Props) {
       AssessmentStorage.saveCurrentAssessment(createResult);
       AssessmentStorage.saveProgress(createResult.id, [], 0, questions.length);
     } catch (error) {
-      console.error('Failed to start assessment with backend, falling back to mock:', error);
-      
-      // Fallback to mock data if backend is unavailable
-      const mockAssessment = createMockAssessment();
-      const questions = mockQuestions.slice(0, 20); // Use first 20 questions for demo
-      
-      dispatch(startAssessment({
-        assessment: mockAssessment,
-        questions
-      }));
-      
-      // Save to local storage
-      AssessmentStorage.saveCurrentAssessment(mockAssessment);
-      AssessmentStorage.saveProgress(mockAssessment.id, [], 0, questions.length);
+      console.error('Failed to start assessment with backend:', error);
+      setAssessmentError('Failed to create assessment. Please check your connection and try again.');
+      // Do NOT fall back to mock assessment - it will cause 404 errors when trying to submit to real API
     }
   };
 
@@ -158,16 +147,18 @@ export default function StartAssessment({ onComplete }: Props) {
       // Update local state immediately for better UX
       dispatch(answerQuestion(response));
       
-      // Save to backend API (auto-save individual response)
-      try {
-        await submitSingleResponse({
-          assessmentId: currentAssessment.id,
-          ...response
-        }).unwrap();
-        
-        console.log('Response saved to backend successfully');
-      } catch (error) {
-        console.error('Failed to save response to backend, saving locally:', error);
+      // Only save to backend API if this is a real assessment (not mock)
+      if (!currentAssessment.id.startsWith('mock-assessment-')) {
+        try {
+          await submitSingleResponse({
+            assessmentId: currentAssessment.id,
+            ...response
+          }).unwrap();
+          
+          console.log('Response saved to backend successfully');
+        } catch (error) {
+          console.error('Failed to save response to backend, saving locally:', error);
+        }
       }
       
       // Also save progress to local storage as backup
@@ -223,6 +214,13 @@ export default function StartAssessment({ onComplete }: Props) {
   const handleSubmit = async () => {
     if (!currentAssessment) return;
 
+    // Prevent mock assessments from being submitted to real backend API
+    if (currentAssessment.id.startsWith('mock-assessment-')) {
+      console.error('Cannot submit mock assessment to backend. Please start a new assessment with the backend.');
+      setAssessmentError('This assessment was created offline. Please start a new assessment to submit responses.');
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
@@ -250,30 +248,8 @@ export default function StartAssessment({ onComplete }: Props) {
       onComplete(completionResult);
     } catch (error: any) {
       console.error('Failed to submit and complete assessment:', error);
-      
-      // Fallback to mock result if backend fails
-      console.log('Falling back to mock assessment result...');
-      
-      // Calculate score using mock utility as fallback
-      const totalQuestions = currentQuestions.length;
-      const score = mockAssessmentResult.calculateScore(responses.length, totalQuestions);
-      const tier = mockAssessmentResult.getTier(score);
-      
-      const mockResult = {
-        assessmentId: currentAssessment.id,
-        score,
-        tier,
-        completedAt: new Date().toISOString(),
-        responses,
-        questionsCount: totalQuestions
-      };
-      
-      // Save fallback result to local storage
-      AssessmentStorage.saveResult(mockResult);
-      AssessmentStorage.clearCurrentSession();
-      
-      // Use fallback result
-      onComplete(mockResult);
+      setAssessmentError('Failed to submit assessment. Please check your connection and try again.');
+      // Don't fallback to mock result here - require actual backend submission
     } finally {
       setIsSubmitting(false);
     }

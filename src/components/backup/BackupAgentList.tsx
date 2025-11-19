@@ -1,11 +1,22 @@
 import React from 'react';
 import { useGetOrganizationAgentsQuery } from '../../store/api/backupApi';
 import { format } from 'date-fns';
+import { Download } from 'lucide-react';
 
 export const BackupAgentList: React.FC = () => {
   // TODO: Get this from user context or URL params
   const organizationId = '123'; // Placeholder - replace with actual org ID
   const { data: agents, isLoading, error } = useGetOrganizationAgentsQuery({ organizationId });
+
+  const handleDownloadAgent = () => {
+    // Download the backup agent from the public folder
+    const link = document.createElement('a');
+    link.href = '/BackupAgent-Setup-v1.0.0.exe';
+    link.download = 'BackupAgent-Setup-v1.0.0.exe';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   if (isLoading) {
     return (
@@ -32,6 +43,13 @@ export const BackupAgentList: React.FC = () => {
           </h2>
           <p className="text-slate-400">Manage your organization's backup agents</p>
         </div>
+        <button
+          onClick={handleDownloadAgent}
+          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-xl font-medium transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg shadow-green-500/25"
+        >
+          <Download className="w-5 h-5" />
+          Download Agent
+        </button>
       </div>
 
       <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden">

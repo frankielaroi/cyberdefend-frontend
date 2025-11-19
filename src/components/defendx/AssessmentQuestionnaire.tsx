@@ -74,8 +74,8 @@ export default function AssessmentQuestionnaire({ assessmentId, onComplete }: Pr
       // Update local state immediately for better UX
       dispatch(answerQuestion(responseData));
       
-      // Auto-save individual response if enabled
-      if (autoSaveEnabled) {
+      // Auto-save individual response if enabled and assessment is real (not mock)
+      if (autoSaveEnabled && !assessmentId.startsWith('mock-assessment-')) {
         try {
           await submitSingleResponse({
             assessmentId,
@@ -105,6 +105,12 @@ export default function AssessmentQuestionnaire({ assessmentId, onComplete }: Pr
   const handleSubmit = async () => {
     if (!currentAssessment) {
       console.error('Missing assessment');
+      return;
+    }
+
+    // Prevent mock assessments from being submitted to real backend API
+    if (currentAssessment.id.startsWith('mock-assessment-')) {
+      console.error('Cannot submit mock assessment to backend');
       return;
     }
 
@@ -142,6 +148,12 @@ export default function AssessmentQuestionnaire({ assessmentId, onComplete }: Pr
   // Manual save progress function
   const handleSaveProgress = async () => {
     if (!currentAssessment) return;
+    
+    // Prevent mock assessments from being submitted to real backend API
+    if (currentAssessment.id.startsWith('mock-assessment-')) {
+      console.error('Cannot save mock assessment to backend');
+      return;
+    }
     
     try {
       await submitBulkResponses({
