@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useAppDispatch, useAppSelector } from './store/hooks';
 import { setLoading, logout } from './store/slices/authSlice';
 import { useTokenManagement } from './hooks/useTokenManagement';
 import { isTokenExpired } from './utils/auth';
+import MaintenanceMode from './components/MaintenanceMode';
 
 // Import debug utilities in development
 if (import.meta.env.DEV) {
@@ -15,6 +16,14 @@ function App() {
 
   // Initialize token management
   useTokenManagement();
+
+  // Check if maintenance mode is active (1 week from start time)
+  const isMaintenanceMode = useMemo(() => {
+    const maintenanceStart = new Date('2025-12-09T00:00:00Z').getTime();
+    const maintenanceDuration = 7 * 24 * 60 * 60 * 1000; // 1 week in milliseconds
+    const currentTime = Date.now();
+    return currentTime < maintenanceStart + maintenanceDuration;
+  }, []);
 
   useEffect(() => {
     const validateToken = async () => {
@@ -67,6 +76,17 @@ function App() {
           <p className="text-gray-600">Initializing...</p>
         </div>
       </div>
+    );
+  }
+
+  // Show maintenance mode page if active
+  if (isMaintenanceMode) {
+    return (
+      <MaintenanceMode 
+        estimatedTime="Unknown"
+        contactEmail="support@cyberdefend.com"
+        message="We are currently performing scheduled maintenance to improve your experience and deploy new security features."
+      />
     );
   }
 

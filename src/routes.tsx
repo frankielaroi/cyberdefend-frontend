@@ -36,11 +36,12 @@ import OrganizationProfile from './components/organization/OrganizationProfile';
 import OrganizationSettings from './components/organization/OrganizationSettings';
 import UserManagement from './components/organization/UserManagement';
 import UserProfile from './components/profile/UserProfile';
+import MaintenanceMode from './components/MaintenanceMode';
 
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <LandingPage />,
+    element: <MaintenanceMode  />,
     errorElement: <ErrorPage />,
     },
   {
