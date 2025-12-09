@@ -65,6 +65,12 @@ export const navigationConfig: RoleNavigation = {
           description: 'Manage assessment questions'
         },
         {
+          name: 'Billing Plans',
+          href: '/dashboard/admin/billing',
+          icon: CreditCardIcon,
+          description: 'Manage subscription plans'
+        },
+        {
           name: 'Phishing Dashboard',
           href: '/dashboard/defendxplus/phishing',
           icon: ExclamationTriangleIcon,
@@ -110,6 +116,13 @@ export const navigationConfig: RoleNavigation = {
           href: '/dashboard/admin/questions',
           icon: DocumentTextIcon,
           description: 'Manage assessment questions'
+        }
+        ,
+        {
+          name: 'Billing Plans',
+          href: '/dashboard/admin/billing',
+          icon: CreditCardIcon,
+          description: 'Manage subscription plans'
         }
       ]
     }

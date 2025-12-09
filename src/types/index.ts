@@ -47,6 +47,7 @@ export interface User {
     email?: string;
     sector: Sector;
   };
+  features?: Record<string, string[]>; // Features accessible based on subscription
 }
 
 export interface Assessment {

@@ -344,7 +344,7 @@ Assessment Results → Plan Recommendation → Billing Dashboard → Checkout
 - **Component:** `BillingDashboard`
 - **Flow Trigger:** After completing first assessment
 - **APIs:**
-  - `GET /billing/plans` - Available subscription plans
+  - `GET /billing/paystack/subscriptionss` - Available subscription plans
   - `GET /billing/subscription` - Current subscription
   - `POST /billing/checkout/session` - Payment processing
   - `GET /billing/invoices` - Billing history

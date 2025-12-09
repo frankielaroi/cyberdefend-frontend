@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom';
 import LandingPage from './components/LandingPage';
+import NotFound from './components/NotFound';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import ForgotPassword from './components/auth/ForgotPassword';
@@ -15,6 +16,7 @@ import { BackupAgentList } from './components/backup/BackupAgentList';
 import AssessmentDashboard from './components/defendx/AssessmentDashboard';
 import StartAssessment from './components/defendx/StartAssessment';
 import AssessmentResults from './components/defendx/AssessmentResults';
+import ErrorPage from './components/ErrorPage';
 import CSIDirectory from './components/defendx/CSIDirectory';
 import AnonymousAssessment from './components/defendx/AnonymousAssessment';
 import PhishingDashboard from './components/defendxplus/PhishingDashboard';
@@ -27,7 +29,9 @@ import SMSCampaignDetails from './components/defendxplus/SMSCampaignDetails';
 import TemplateManager from './components/defendxplus/TemplateManager';
 import AdminDashboard from './components/admin/AdminDashboard';
 import QuestionManager from './components/admin/QuestionManager';
+import AdminBillingPage from './components/admin/billing/AdminBillingPage';
 import BillingDashboard from './components/billing/BillingDashboard';
+import PaystackCallback from './components/billing/PaystackCallback';
 import OrganizationProfile from './components/organization/OrganizationProfile';
 import OrganizationSettings from './components/organization/OrganizationSettings';
 import UserManagement from './components/organization/UserManagement';
@@ -37,35 +41,50 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <LandingPage />,
+    errorElement: <ErrorPage />,
     },
-  
   {
     path: '/login',
     element: <Login />,
+    errorElement: <ErrorPage />,
   },
+    
   {
     path: '/register',
     element: <Register />,
+    errorElement: <ErrorPage />,
   },
+    
   {
     path: '/forgot-password',
     element: <ForgotPassword />,
+    errorElement: <ErrorPage />,
   },
   {
     path: '/reset-password',
     element: <ResetPassword />,
+    errorElement: <ErrorPage />,
   },
+    
   {
     path: '/verify-email',
     element: <VerifyEmail />,
+    errorElement: <ErrorPage />,
   },
   {
     path: '/csi-directory',
     element: <CSIDirectory />,
+    errorElement: <ErrorPage />,
   },
   {
     path: '/assessment/anonymous',
     element: <AnonymousAssessment />,
+    errorElement: <ErrorPage />,
+  },
+  {
+    path: '/billing/callback',
+    element: <PaystackCallback />,
+    errorElement: <ErrorPage />,
   },
   {
     path: '/dashboard',
@@ -74,23 +93,30 @@ export const router = createBrowserRouter([
         <DashboardLayout />
       </ProtectedRoute>
     ),
+    errorElement: <ErrorPage />,
     children: [
       {
         path: '',
         element: <RoleBasedDashboard />,
       },
       {
+        path: '*',
+        element: <NotFound />,
+        errorElement: <ErrorPage />,
+      },
+      {
         path: 'defendx',
         element: (
-          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
+          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']} requiredFeatures={['full_security_suite']}>
             <AssessmentDashboard />
           </ProtectedRoute>
         ),
+        errorElement: <ErrorPage />,
       },
       {
         path: 'defendx/assessment/start',
         element: (
-          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
+          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']} requiredFeatures={['full_security_suite']}>
             <StartAssessment onComplete={(results) => console.log('Assessment completed:', results)} />
           </ProtectedRoute>
         ),
@@ -98,7 +124,7 @@ export const router = createBrowserRouter([
       {
         path: 'defendx/assessment/result/:id',
         element: (
-          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
+          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']} requiredFeatures={['full_security_suite']}>
             <AssessmentResults />
           </ProtectedRoute>
         ),
@@ -106,7 +132,7 @@ export const router = createBrowserRouter([
       {
         path: 'defendx/demo-results',
         element: (
-          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
+          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']} requiredFeatures={['full_security_suite']}>
             <AssessmentResults />
           </ProtectedRoute>
         ),
@@ -114,10 +140,11 @@ export const router = createBrowserRouter([
       {
         path: 'defendxplus/phishing',
         element: (
-          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER','SUPER_ADMIN']}>
+          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER','SUPER_ADMIN']} requiredFeatures={['advanced_reporting']}>
             <PhishingDashboard />
           </ProtectedRoute>
         ),
+        errorElement: <ErrorPage />,
       },
       {
         path: 'defendxplus/campaigns/create',
@@ -162,7 +189,7 @@ export const router = createBrowserRouter([
       {
         path: 'defendxplus/monitoring',
         element: (
-          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
+          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']} requiredFeatures={['realtime_monitoring']}>
             <MonitoringDashboard />
           </ProtectedRoute>
         ),
@@ -180,6 +207,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
             <BillingDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'billing/callback',
+        element: (
+          <ProtectedRoute allowedRoles={['ORG_ADMIN', 'ORG_MANAGER']}>
+            <PaystackCallback />
           </ProtectedRoute>
         ),
       },
@@ -238,6 +273,7 @@ export const router = createBrowserRouter([
             <AdminDashboard />
           </ProtectedRoute>
         ),
+        errorElement: <ErrorPage />,
       },
       {
         path: 'admin/questions',
@@ -248,9 +284,17 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: 'admin/billing',
+        element: (
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'CSA_ADMIN']}>
+            <AdminBillingPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: 'backup',
         element: (
-          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'CSA_ADMIN', 'ORG_ADMIN']}>
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'CSA_ADMIN', 'ORG_ADMIN']} requiredFeatures={['backup_management']}>
             <BackupLayout />
           </ProtectedRoute>
         ),
@@ -266,4 +310,10 @@ export const router = createBrowserRouter([
         ],
       },
     ],
-  },]);
+  },
+  {
+    path: '*',
+    element: <NotFound />,
+    errorElement: <ErrorPage />,
+  },
+]);

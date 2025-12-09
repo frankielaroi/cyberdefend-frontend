@@ -25,6 +25,21 @@ export default function OrganizationManagerDashboard() {
   const { data: campaigns, isLoading: campaignsLoading, error: campaignsError } = useGetCampaignsQuery({});
   const { data: subscription, error: subscriptionError } = useGetSubscriptionQuery();
 
+  // Check user features
+  const userFeatures = user?.features || {};
+  const hasFullSecuritySuite = Object.values(userFeatures).some((features: string[]) => 
+    features.includes('full_security_suite')
+  );
+  const hasRealtimeMonitoring = Object.values(userFeatures).some((features: string[]) => 
+    features.includes('realtime_monitoring')
+  );
+  const hasBackupManagement = Object.values(userFeatures).some((features: string[]) => 
+    features.includes('backup_management')
+  );
+  const hasAdvancedReporting = Object.values(userFeatures).some((features: string[]) => 
+    features.includes('advanced_reporting')
+  );
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       setMousePosition({
@@ -104,100 +119,115 @@ export default function OrganizationManagerDashboard() {
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricCard
-          icon={<Shield className="w-6 h-6" />}
-          title="CSI Score"
-          value={latestAssessment?.score ? `${latestAssessment.score}/100` : 'Not assessed'}
-          subtitle={latestAssessment?.tier ? `Grade ${latestAssessment.tier}` : 'Take assessment'}
-          color="blue"
-          trend={latestAssessment?.score ? '+5 from last month' : undefined}
-        />
+        {hasFullSecuritySuite && (
+          <MetricCard
+            icon={<Shield className="w-6 h-6" />}
+            title="CSI Score"
+            value={latestAssessment?.score ? `${latestAssessment.score}/100` : 'Not assessed'}
+            subtitle={latestAssessment?.tier ? `Grade ${latestAssessment.tier}` : 'Take assessment'}
+            color="blue"
+            trend={latestAssessment?.score ? '+5 from last month' : undefined}
+          />
+        )}
         
-        <MetricCard
-          icon={<Mail className="w-6 h-6" />}
-          title="Phishing Campaigns"
-          value={totalCampaigns.toString()}
-          subtitle={`${activeCampaigns.length} active`}
-          color="green"
-          trend={totalCampaigns > 0 ? 'Last run 2 days ago' : undefined}
-        />
+        {hasAdvancedReporting && (
+          <MetricCard
+            icon={<Mail className="w-6 h-6" />}
+            title="Phishing Campaigns"
+            value={totalCampaigns.toString()}
+            subtitle={`${activeCampaigns.length} active`}
+            color="green"
+            trend={totalCampaigns > 0 ? 'Last run 2 days ago' : undefined}
+          />
+        )}
         
-        <MetricCard
-          icon={<AlertTriangle className="w-6 h-6" />}
-          title="Active Alerts"
-          value={mockAlerts.toString()}
-          subtitle="Needs attention"
-          color="orange"
-          trend="2 new today"
-        />
+        {hasRealtimeMonitoring && (
+          <MetricCard
+            icon={<AlertTriangle className="w-6 h-6" />}
+            title="Active Alerts"
+            value={mockAlerts.toString()}
+            subtitle="Needs attention"
+            color="orange"
+            trend="2 new today"
+          />
+        )}
         
-        <MetricCard
-          icon={<Activity className="w-6 h-6" />}
-          title="Monitored Endpoints"
-          value={mockAgents.toString()}
-          subtitle="Online agents"
-          color="purple"
-          trend="All systems operational"
-        />
+        {hasBackupManagement && (
+          <MetricCard
+            icon={<Activity className="w-6 h-6" />}
+            title="Monitored Endpoints"
+            value={mockAgents.toString()}
+            subtitle="Online agents"
+            color="purple"
+            trend="All systems operational"
+          />
+        )}
       </div>
 
       {/* Quick Actions */}
       <div className="bg-slate-800/60 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6 shadow-2xl">
         <h2 className="text-xl font-semibold text-white mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <ActionCard
-            icon={<Target className="w-8 h-8" />}
-            title="Start Assessment"
-            description="Run a new cybersecurity assessment"
-            to="/dashboard/defendx/assessment/start"
-            buttonText="Begin Assessment"
-            color="blue"
-          />
+          {hasFullSecuritySuite && (
+            <ActionCard
+              icon={<Target className="w-8 h-8" />}
+              title="Start Assessment"
+              description="Run a new cybersecurity assessment"
+              to="/dashboard/defendx/assessment/start"
+              buttonText="Begin Assessment"
+              color="blue"
+            />
+          )}
           
-          <ActionCard
-            icon={<Mail className="w-8 h-8" />}
-            title="Launch Phishing Test"
-            description="Create and deploy phishing simulation"
-            to="/dashboard/defendxplus/phishing"
-            buttonText="Create Campaign"
-            color="green"
-          />
+          {hasAdvancedReporting && (
+            <ActionCard
+              icon={<Mail className="w-8 h-8" />}
+              title="Launch Phishing Test"
+              description="Create and deploy phishing simulation"
+              to="/dashboard/defendxplus/phishing"
+              buttonText="Create Campaign"
+              color="green"
+            />
+          )}
           
-          <ActionCard
-            icon={<BarChart3 className="w-8 h-8" />}
-            title="View Reports"
-            description="Access detailed security reports"
-            to="/dashboard/defendxplus/scans"
-            buttonText="View Reports"
-            color="purple"
-          />
+          {hasRealtimeMonitoring && (
+            <ActionCard
+              icon={<BarChart3 className="w-8 h-8" />}
+              title="View Reports"
+              description="Access detailed security reports"
+              to="/dashboard/defendxplus/scans"
+              buttonText="View Reports"
+              color="purple"
+            />
+          )}
         </div>
       </div>
 
       {/* Recent Activity & Status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Assessment Status */}
-        <div className="bg-slate-800/60 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6 shadow-2xl">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-white">Assessment Status</h3>
-            <Link 
-              to="/dashboard/defendx"
-              className="text-blue-400 hover:text-blue-300 text-sm font-medium"
-            >
-              View All
-            </Link>
-          </div>
-          
-          {assessmentsLoading ? (
-            <div className="text-center py-8 text-slate-400">Loading assessments...</div>
-          ) : latestAssessment ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-slate-700 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${
-                    latestAssessment.tier === 'A' ? 'bg-green-100' :
-                    latestAssessment.tier === 'B' ? 'bg-blue-100' :
-                    latestAssessment.tier === 'C' ? 'bg-yellow-100' :
+        {hasFullSecuritySuite && (
+          <div className="bg-slate-800/60 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Assessment Status</h3>
+              <Link 
+                to="/dashboard/defendx"
+                className="text-blue-400 hover:text-blue-300 text-sm font-medium"
+              >
+                View All
+              </Link>
+            </div>
+            
+            {assessmentsLoading ? (
+              <div className="text-center py-8 text-slate-400">Loading assessments...</div>
+            ) : latestAssessment ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-slate-700 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${
+                      latestAssessment.tier === 'A' ? 'bg-green-100' :
+                      latestAssessment.tier === 'B' ? 'bg-blue-100' :
+                      latestAssessment.tier === 'C' ? 'bg-yellow-100' :
                     latestAssessment.tier === 'D' ? 'bg-orange-100' : 'bg-red-100'
                   }`}>
                     <Shield className={`w-5 h-5 ${
@@ -247,8 +277,10 @@ export default function OrganizationManagerDashboard() {
             </div>
           )}
         </div>
+        )}
 
         {/* Phishing Campaigns */}
+        {hasAdvancedReporting && (
         <div className="bg-slate-800/60 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6 shadow-2xl">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-white">Phishing Campaigns</h3>
@@ -319,6 +351,7 @@ export default function OrganizationManagerDashboard() {
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* Subscription Status */}

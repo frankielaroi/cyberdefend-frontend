@@ -174,7 +174,7 @@ The frontend expects the following backend endpoints:
 - POST `/defendxplus/scans/schedule`
 
 ### Billing
-- GET `/billing/plans`
+- GET `/billing/paystack/subscriptionss`
 - GET `/billing/subscriptions`
 - POST `/billing/checkout/session`
 - GET `/billing/invoices`
